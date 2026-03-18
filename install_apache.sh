@@ -282,6 +282,13 @@ function manage_extensions() {
     fi
 }
 
+function install_certbot() {
+    echo -e "${CYAN}Installing Certbot for Apache...${NC}"
+    apt-get update
+    apt-get install -y certbot python3-certbot-apache
+    msg_box "Success" "Certbot has been installed correctly."
+}
+
 function add_domain() {
     DOMAIN=$(input_box "Domain Name" "Enter the domain name (e.g., example.com):" "example.com")
     [ -z "$DOMAIN" ] && return
@@ -321,7 +328,18 @@ EOF
     a2ensite "$DOMAIN.conf"
     systemctl restart apache2
     
-    msg_box "Success" "Virtual Host for $DOMAIN has been created and enabled.\nPath: $VPATH"
+    # SSL Support with Certbot
+    yes_no "SSL Support" "Do you want to configure SSL for $DOMAIN using Certbot?"
+    if [ $? -eq 0 ]; then
+        if ! command -v certbot &> /dev/null; then
+            echo -e "${YELLOW}Certbot not found. Installing now...${NC}"
+            apt-get install -y certbot python3-certbot-apache
+        fi
+        echo -e "${CYAN}Running Certbot for $DOMAIN...${NC}"
+        certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
+    fi
+    
+    msg_box "Success" "Virtual Host for $DOMAIN has been created and enabled.\nSSL setup attempted if requested.\nPath: $VPATH"
 }
 
 function change_root() {
@@ -423,10 +441,11 @@ function main_menu() {
             "2" "Install PHP Extensions (List)" \
             "3" "Install Custom PHP Extension" \
             "4" "Install Apache Modules" \
-            "5" "Add New Virtual Host (Domain)" \
-            "6" "List/Manage Virtual Hosts" \
-            "7" "Change Default DocumentRoot" \
-            "8" "Restart Apache" \
+            "5" "Install Certbot (SSL)" \
+            "6" "Add New Virtual Host (Domain)" \
+            "7" "List/Manage Virtual Hosts" \
+            "8" "Change Default DocumentRoot" \
+            "9" "Restart Apache" \
             "0" "Exit")
 
         case $CHOICE in
@@ -434,10 +453,11 @@ function main_menu() {
             2) manage_extensions ;;
             3) install_custom_extension ;;
             4) manage_modules ;;
-            5) add_domain ;;
-            6) list_vhosts ;;
-            7) change_root ;;
-            8) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            5) install_certbot ;;
+            6) add_domain ;;
+            7) list_vhosts ;;
+            8) change_root ;;
+            9) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
             0|*) exit 0 ;;
         esac
     done

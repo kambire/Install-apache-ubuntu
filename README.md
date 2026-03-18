@@ -9,6 +9,7 @@ Este es un script interactivo diseñado para facilitar la instalación y gestió
 - 🧩 **Extensiones PHP**: Selección masiva de más de 80 extensiones disponibles.
 - ➕ **Extensión Personalizada**: Opción para escribir el nombre de cualquier extensión no listada.
 - 🌐 **Gestión de Dominios**: Creador de Virtual Hosts automático con rutas personalizadas.
+- 🔒 **Soporte SSL (Certbot)**: Opción para instalar Certbot y configurar SSL automáticamente en nuevos dominios.
 - 📋 **Listar/Gestionar VHosts**: Sistema para ver, habilitar o deshabilitar tus sitios existentes.
 - 📂 **Cambio de DocumentRoot**: Permite moficiar la ruta por defecto del servidor globalmente.
 - 🔄 **Actualización**: Script independiente para mantener las herramientas al día.

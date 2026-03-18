@@ -511,13 +511,15 @@ function list_vhosts() {
         "1" "Check status (Apache status)" \
         "2" "Open configuration file" \
         "3" "Disable site (a2dissite)" \
-        "4" "Enable site (a2ensite)")
+        "4" "Enable site (a2ensite)" \
+        "5" "ELIMINAR por completo (Borrar archivos/conf)")
 
     case $ACTION in
         1) systemctl status apache2 | head -n 20 && read -p "Press enter to return" ;;
         2) nano "/etc/apache2/sites-available/$SELECTED_SITE.conf" ;;
         3) a2dissite "$SELECTED_SITE" && systemctl restart apache2 && msg_box "Success" "Site disabled." ;;
         4) a2ensite "$SELECTED_SITE" && systemctl restart apache2 && msg_box "Success" "Site enabled." ;;
+        5) delete_domain "$SELECTED_SITE" ;;
     esac
 }
 
@@ -589,24 +591,28 @@ function fix_permissions() {
 }
 
 function delete_domain() {
-    msg_box "Eliminar Virtual Host" "CUIDADO: Esta opción eliminará la configuración del dominio y, si lo deseas, también todos sus archivos."
+    local DOMAIN=$1
     
-    # List available configs, excluding current defaults
-    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
-    
-    if [ -z "$SITES" ]; then
-        msg_box "Info" "No se encontraron Virtual Hosts personalizados para eliminar."
-        return
+    if [ -z "$DOMAIN" ]; then
+        msg_box "Eliminar Virtual Host" "CUIDADO: Esta opción eliminará la configuración del dominio y, si lo deseas, también todos sus archivos."
+        
+        # List available configs, excluding current defaults
+        SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+        
+        if [ -z "$SITES" ]; then
+            msg_box "Info" "No se encontraron Virtual Hosts personalizados para eliminar."
+            return
+        fi
+        
+        OPTIONS=()
+        for site in $SITES; do
+            OPTIONS+=("$site" "Configuración de Apache")
+        done
+        
+        DOMAIN=$(menu "Seleccionar Dominio para ELIMINAR" "Elige el dominio que deseas borrar permanentemente:" "${OPTIONS[@]}")
+        
+        [ -z "$DOMAIN" ] && return
     fi
-    
-    OPTIONS=()
-    for site in $SITES; do
-        OPTIONS+=("$site" "Configuración de Apache")
-    done
-    
-    DOMAIN=$(menu "Seleccionar Dominio para ELIMINAR" "Elige el dominio que deseas borrar permanentemente:" "${OPTIONS[@]}")
-    
-    [ -z "$DOMAIN" ] && return
     
     yes_no "Confirmar Eliminación" "¿Estás SEGURO de que deseas eliminar la configuración de $DOMAIN? Esta acción no se puede deshacer."
     [ $? -ne 0 ] && return

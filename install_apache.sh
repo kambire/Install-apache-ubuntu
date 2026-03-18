@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.5.1 (MySQL Host Customization & PHP 8.4)
+# Version: 1.5.2 (Syntax Fix & Stability)
 # ==============================================================================
 
 # Colors for terminal output
@@ -944,8 +944,10 @@ function install_sqlsrv() {
     # Verify drivers visually
     echo -e "${GREEN}Resumen de Drivers (PHP Default):${NC}"
     php -m | grep -E "sqlsrv|dblib"
-    
-    msg_bofunction get_mysql_host() {
+    msg_box "Éxito" "Drivers de MSSQL y dblib instalados en las versiones seleccionadas."
+}
+
+function get_mysql_host() {
     HCHOICE=$(whiptail --title "Host MySQL" --menu "Selecciona el origen permitido para el usuario:" 15 60 3 \
         "%" "Cualquier Host (Público/Remoto)" \
         "localhost" "Local solamente" \

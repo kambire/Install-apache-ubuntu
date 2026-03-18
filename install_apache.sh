@@ -435,9 +435,9 @@ function add_domain() {
     echo -e "${CYAN}Creating directory and setting permissions...${NC}"
     mkdir -p "$VPATH"
     
-    # Identify potential users for ownership (non-system users)
-    USERS=$(awk -F' ' '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-    USER_OPTIONS=()
+    # Identify potential users for ownership (non-system users + root)
+    USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+    USER_OPTIONS=("root" "Root User (Admin)")
     for u in $USERS; do
         USER_OPTIONS+=("$u" "Usuario del Sistema")
     done
@@ -643,7 +643,7 @@ function fix_permissions() {
 
     # User selection
     USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-    USER_OPTIONS=()
+    USER_OPTIONS=("root" "Root User (Admin)")
     for u in $USERS; do
         USER_OPTIONS+=("$u" "Usuario del Sistema")
     done

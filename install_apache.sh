@@ -1,11 +1,5 @@
 #!/bin/bash
-
-# ==============================================================================
-# Modern Apache & PHP Installation Script
-# ==============================================================================
-# Description: Interactive script to install Apache, modules, PHP extensions, 
-#              manage virtual hosts, and change default directories.
-# Target OS: Ubuntu / Debian
+# Version: 1.5.0 (MySQL Management Added)
 # ==============================================================================
 
 # Colors for terminal output
@@ -63,7 +57,7 @@ function menu() {
     local title=$1
     local text=$2
     shift 2
-    whiptail --title "$title" --menu "$text" 20 70 10 "$@" 3>&1 1>&2 2>&3
+    whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>&3
 }
 
 function checklist() {
@@ -132,7 +126,6 @@ function manage_modules() {
         "headers" "HTTP Header manipulation" OFF \
         "proxy" "Multi-protocol proxy/gateway server" OFF \
         "proxy_http" "Proxy HTTP protocol support" OFF \
-        "proxy_fcgi" "FastCGI support for proxy" OFF \
         "proxy_balancer" "Load balancing support for proxy" OFF \
         "proxy_connect" "CONNECT request handling (HTTPS proxying)" OFF \
         "proxy_http2" "HTTP/2 support module for proxy" OFF \

@@ -439,6 +439,26 @@ function add_ssl_to_existing() {
         msg_box "Error" "Hubo un problema al generar el certificado.\n1. Verifica que el dominio apunte a la IP de este servidor.\n2. Asegúrate de que el puerto 80 esté abierto."
     fi
 }
+function apply_permissions() {
+    local OWNER=$1
+    local VPATH=$2
+    
+    echo -e "${CYAN}Applying permissions for $OWNER on $VPATH...${NC}"
+    chown -R "$OWNER:www-data" "$VPATH"
+    find "$VPATH" -type d -exec chmod 2775 {} +
+    find "$VPATH" -type f -exec chmod 0664 {} +
+    
+    if command -v setfacl &> /dev/null; then
+        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -m "g:www-data:rwx" "$VPATH"
+        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
+    fi
+
+    if [ "$OWNER" != "www-data" ] && [ "$OWNER" != "root" ]; then
+        usermod -a -G www-data "$OWNER"
+    fi
+}
 
 function add_domain() {
     msg_box "Nuevo Host Virtual" "Esta herramienta creará un nuevo archivo de configuración de Virtual Host, la carpeta para tu sitio y configurará el usuario y PHP."
@@ -516,21 +536,7 @@ Password: $NEW_PASS
         CREDS_MSG=""
     fi
 
-    echo -e "${CYAN}Setting ownership to $OWNER:www-data...${NC}"
-    chown -R "$OWNER:www-data" "$VPATH"
-    find "$VPATH" -type d -exec chmod 2775 {} +
-    find "$VPATH" -type f -exec chmod 0664 {} +
-    
-    if command -v setfacl &> /dev/null; then
-        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -m "g:www-data:rwx" "$VPATH"
-        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
-    fi
-
-    if [ "$OWNER" != "www-data" ]; then
-        usermod -a -G www-data "$OWNER"
-    fi
+    apply_permissions "$OWNER" "$VPATH"
     
     if [ ! -f "$VPATH/index.html" ]; then
         echo "<h1>Welcome to $DOMAIN</h1>" > "$VPATH/index.html"
@@ -748,20 +754,11 @@ Password: $NEW_PASS
         [ -z "$OWNER" ] && return
     fi
     
-    echo -e "${CYAN}Fixing permissions for $VPATH...${NC}"
-    chown -R "$OWNER:www-data" "$VPATH"
-    find "$VPATH" -type d -exec chmod 2775 {} +
-    find "$VPATH" -type f -exec chmod 0664 {} +
+    apply_permissions "$OWNER" "$VPATH"
     
-    # Apply ACLs
-    if command -v setfacl &> /dev/null; then
-        echo -e "${CYAN}Applying ACLs for $OWNER and www-data...${NC}"
-        setfacl -R -b "$VPATH" # Clear existing ACLs
-        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -m "g:www-data:rwx" "$VPATH"
-        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
-    fi
+    # Diagnostics
+    DIAG=$(ls -ld "$VPATH")
+    USER_INFO=$(id "$OWNER")
 
     if [ "$OWNER" != "www-data" ]; then
         usermod -a -G www-data "$OWNER"
@@ -810,7 +807,7 @@ function manage_users() {
                 
                 useradd -m -d "$HDIR" -s /usr/sbin/nologin -G www-data "$USERNAME"
                 echo "$USERNAME:$PASSWORD" | chpasswd
-                chown -R "$USERNAME:www-data" "$HDIR"
+                apply_permissions "$USERNAME" "$HDIR"
                 
                 msg_box "Usuario Creado" "Usuario: $USERNAME\nPassword: $PASSWORD\nDirectorio: $HDIR"
                 echo -e "${GREEN}Usuario: $USERNAME | Password: $PASSWORD | Directorio: $HDIR${NC}"

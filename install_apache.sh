@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.5.2 (Syntax Fix & Stability)
+# Version: 1.5.3 (Hard Sync Fix)
 # ==============================================================================
 
 # Colors for terminal output

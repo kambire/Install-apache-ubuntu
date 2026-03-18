@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.5.0 (MySQL Management Added)
+# Version: 1.5.1 (MySQL Host Customization & PHP 8.4)
 # ==============================================================================
 
 # Colors for terminal output
@@ -80,7 +80,8 @@ function install_apache_php() {
     
     # PHP Version Selection (Checklist for multiple)
     PHP_VERSIONS=$(checklist "Seleccionar Versiones de PHP" "Elige las versiones de PHP a instalar (Espacio para marcar):" \
-        "8.3" "PHP 8.3 (Latest)" ON \
+        "8.4" "PHP 8.4 (Latest)" ON \
+        "8.3" "PHP 8.3" OFF \
         "8.2" "PHP 8.2" OFF \
         "8.1" "PHP 8.1" OFF \
         "8.0" "PHP 8.0" OFF \
@@ -944,7 +945,18 @@ function install_sqlsrv() {
     echo -e "${GREEN}Resumen de Drivers (PHP Default):${NC}"
     php -m | grep -E "sqlsrv|dblib"
     
-    msg_box "Éxito" "Drivers de MSSQL y dblib instalados en las versiones seleccionadas."
+    msg_bofunction get_mysql_host() {
+    HCHOICE=$(whiptail --title "Host MySQL" --menu "Selecciona el origen permitido para el usuario:" 15 60 3 \
+        "%" "Cualquier Host (Público/Remoto)" \
+        "localhost" "Local solamente" \
+        "custom" "IP Específica..." 3>&1 1>&2 2>&3)
+    
+    if [ "$HCHOICE" == "custom" ]; then
+        MHOST=$(input_box "IP MySQL" "Introduce la IP permitida:")
+        [ -z "$MHOST" ] && echo "localhost" || echo "$MHOST"
+    else
+        echo "$HCHOICE"
+    fi
 }
 
 function manage_mysql() {
@@ -994,6 +1006,10 @@ function manage_mysql() {
             3)
                 MUSER=$(input_box "Nuevo Usuario" "Introduce el nombre del usuario MySQL:")
                 [ -z "$MUSER" ] && continue
+                
+                MHOST=$(get_mysql_host)
+                [ -z "$MHOST" ] && continue
+                
                 yes_no "Password" "¿Generar contraseña aleatoria?"
                 if [ $? -eq 0 ]; then
                     MPASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
@@ -1001,25 +1017,37 @@ function manage_mysql() {
                     MPASS=$(input_box "Password" "Introduce la contraseña:")
                 fi
                 [ -z "$MPASS" ] && continue
-                mysql -e "CREATE USER '$MUSER'@'%' IDENTIFIED BY '$MPASS';"
-                msg_box "Usuario Creado" "Usuario: $MUSER\nPassword: $MPASS\nHost: % (Permite acceso remoto)"
-                echo -e "${GREEN}MySQL User: $MUSER | Pass: $MPASS${NC}"
+                
+                mysql -e "CREATE USER '$MUSER'@'$MHOST' IDENTIFIED BY '$MPASS';"
+                msg_box "Usuario Creado" "Usuario: $MUSER\nPassword: $MPASS\nHost: $MHOST"
+                echo -e "${GREEN}MySQL User: $MUSER | Pass: $MPASS | Host: $MHOST${NC}"
                 ;;
             4)
-                MUSERS=$(mysql -N -s -e "SELECT User FROM mysql.user;" | grep -Ev "root|mysql.sys|mysql.session|debian-sys-maint")
+                # List users as User@Host
+                MUSERS=$(mysql -N -s -e "SELECT CONCAT(User, '@', Host) FROM mysql.user;" | grep -Ev "root|mysql.sys|mysql.session|debian-sys-maint")
                 U_OPTIONS=()
                 for u in $MUSERS; do U_OPTIONS+=("$u" "Usuario MySQL"); done
-                DEL_U=$(menu "Eliminar Usuario" "Selecciona el usuario a borrar:" "${U_OPTIONS[@]}")
-                [ -n "$DEL_U" ] && yes_no "Confirmar" "¿Borrar usuario $DEL_U?" && [ $? -eq 0 ] && mysql -e "DROP USER '$DEL_U'@'%';" && msg_box "Exito" "Usuario '$DEL_U' eliminado."
+                DEL_U_HOST=$(menu "Eliminar Usuario" "Selecciona el usuario a borrar:" "${U_OPTIONS[@]}")
+                [ -z "$DEL_U_HOST" ] && continue
+                
+                # Split user and host
+                U_ONLY=$(echo $DEL_U_HOST | cut -d'@' -f1)
+                H_ONLY=$(echo $DEL_U_HOST | cut -d'@' -f2)
+                
+                yes_no "Confirmar" "¿Borrar usuario '$U_ONLY' con host '$H_ONLY'?" && [ $? -eq 0 ] && mysql -e "DROP USER '$U_ONLY'@'$H_ONLY';" && msg_box "Exito" "Usuario '$DEL_U_HOST' eliminado."
                 ;;
             5)
                 # Select User
-                MUSERS=$(mysql -N -s -e "SELECT User FROM mysql.user;" | grep -Ev "root|mysql.sys|mysql.session|debian-sys-maint")
+                MUSERS=$(mysql -N -s -e "SELECT CONCAT(User, '@', Host) FROM mysql.user;" | grep -Ev "root|mysql.sys|mysql.session|debian-sys-maint")
                 U_OPTIONS=()
                 for u in $MUSERS; do U_OPTIONS+=("$u" "Usuario MySQL"); done
-                GUSER=$(menu "Seleccionar Usuario" "Elige el usuario:" "${U_OPTIONS[@]}")
-                [ -z "$GUSER" ] && continue
+                GUSER_HOST=$(menu "Seleccionar Usuario" "Elige el usuario:" "${U_OPTIONS[@]}")
+                [ -z "$GUSER_HOST" ] && continue
                 
+                # Split user and host
+                U_ONLY=$(echo $GUSER_HOST | cut -d'@' -f1)
+                H_ONLY=$(echo $GUSER_HOST | cut -d'@' -f2)
+
                 # Select DB
                 DBS=$(mysql -N -s -e "SHOW DATABASES;" | grep -Ev "information_schema|performance_schema|mysql|sys")
                 DB_OPTIONS=()
@@ -1027,8 +1055,7 @@ function manage_mysql() {
                 GDB=$(menu "Seleccionar DB" "Elige la base de datos para darle permisos totales:" "${DB_OPTIONS[@]}")
                 [ -z "$GDB" ] && continue
                 
-                mysql -e "GRANT ALL PRIVILEGES ON \`$GDB\`.* TO '$GUSER'@'%'; FLUSH PRIVILEGES;"
-                msg_box "Exito" "Permisos asignados: $GUSER ahora tiene acceso total a $GDB."
+                mysql -e "GRANT ALL PRIVILEGES ON \`$GDB\`.* TO '$U_ONLY'@'$H_ONLY'; FLUSH PRIVILEGES;"
                 ;;
         esac
     done

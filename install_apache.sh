@@ -954,6 +954,93 @@ function install_sqlsrv() {
     msg_box "Éxito" "Drivers de MSSQL y dblib instalados en las versiones seleccionadas."
 }
 
+function manage_mysql() {
+    # Check if mysql is installed
+    if ! command -v mysql &> /dev/null; then
+        yes_no "Instalar MySQL" "MySQL Server no parece estar instalado. ¿Deseas instalarlo ahora?"
+        if [ $? -eq 0 ]; then
+            echo -e "${CYAN}Instalando MySQL Server...${NC}"
+            apt-get update
+            apt-get install -y mysql-server
+            systemctl start mysql
+            systemctl enable mysql
+            
+            # Install php-mysql for all versions
+            INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+            for v in $INSTALLED_PHP; do
+                apt-get install -y "php$v-mysql"
+                systemctl restart "php$v-fpm" 2>/dev/null
+            done
+            msg_box "Exito" "MySQL Server ha sido instalado y configurado para PHP."
+        fi
+    fi
+
+    while true; do
+        MCHOICE=$(whiptail --title "Gestión de MySQL" --menu "Selecciona una opción:" 18 65 6 \
+            "1" "Crear Base de Datos" \
+            "2" "Eliminar Base de Datos" \
+            "3" "Crear Usuario y Password" \
+            "4" "Eliminar Usuario" \
+            "5" "Asignar Permisos (Grant All)" \
+            "6" "Atrás" 3>&1 1>&2 2>&3)
+        
+        [ -z "$MCHOICE" ] || [ "$MCHOICE" == "6" ] && break
+        
+        case $MCHOICE in
+            1)
+                DBNAME=$(input_box "Nueva DB" "Introduce el nombre de la base de datos:")
+                [ -n "$DBNAME" ] && mysql -e "CREATE DATABASE IF NOT EXISTS \`$DBNAME\`;" && msg_box "Exito" "Base de datos '$DBNAME' creada."
+                ;;
+            2)
+                DBS=$(mysql -N -s -e "SHOW DATABASES;" | grep -Ev "information_schema|performance_schema|mysql|sys")
+                DB_OPTIONS=()
+                for db in $DBS; do DB_OPTIONS+=("$db" "Base de Datos"); done
+                DEL_DB=$(menu "Eliminar DB" "Selecciona la base de datos a borrar PERMANENTEMENTE:" "${DB_OPTIONS[@]}")
+                [ -n "$DEL_DB" ] && yes_no "Confirmar" "¿Seguro que quieres borrar la DB $DEL_DB?" && [ $? -eq 0 ] && mysql -e "DROP DATABASE \`$DEL_DB\`;" && msg_box "Exito" "Base de datos '$DEL_DB' eliminada."
+                ;;
+            3)
+                MUSER=$(input_box "Nuevo Usuario" "Introduce el nombre del usuario MySQL:")
+                [ -z "$MUSER" ] && continue
+                yes_no "Password" "¿Generar contraseña aleatoria?"
+                if [ $? -eq 0 ]; then
+                    MPASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+                else
+                    MPASS=$(input_box "Password" "Introduce la contraseña:")
+                fi
+                [ -z "$MPASS" ] && continue
+                mysql -e "CREATE USER '$MUSER'@'%' IDENTIFIED BY '$MPASS';"
+                msg_box "Usuario Creado" "Usuario: $MUSER\nPassword: $MPASS\nHost: % (Permite acceso remoto)"
+                echo -e "${GREEN}MySQL User: $MUSER | Pass: $MPASS${NC}"
+                ;;
+            4)
+                MUSERS=$(mysql -N -s -e "SELECT User FROM mysql.user;" | grep -Ev "root|mysql.sys|mysql.session|debian-sys-maint")
+                U_OPTIONS=()
+                for u in $MUSERS; do U_OPTIONS+=("$u" "Usuario MySQL"); done
+                DEL_U=$(menu "Eliminar Usuario" "Selecciona el usuario a borrar:" "${U_OPTIONS[@]}")
+                [ -n "$DEL_U" ] && yes_no "Confirmar" "¿Borrar usuario $DEL_U?" && [ $? -eq 0 ] && mysql -e "DROP USER '$DEL_U'@'%';" && msg_box "Exito" "Usuario '$DEL_U' eliminado."
+                ;;
+            5)
+                # Select User
+                MUSERS=$(mysql -N -s -e "SELECT User FROM mysql.user;" | grep -Ev "root|mysql.sys|mysql.session|debian-sys-maint")
+                U_OPTIONS=()
+                for u in $MUSERS; do U_OPTIONS+=("$u" "Usuario MySQL"); done
+                GUSER=$(menu "Seleccionar Usuario" "Elige el usuario:" "${U_OPTIONS[@]}")
+                [ -z "$GUSER" ] && continue
+                
+                # Select DB
+                DBS=$(mysql -N -s -e "SHOW DATABASES;" | grep -Ev "information_schema|performance_schema|mysql|sys")
+                DB_OPTIONS=()
+                for db in $DBS; do DB_OPTIONS+=("$db" "Base de Datos"); done
+                GDB=$(menu "Seleccionar DB" "Elige la base de datos para darle permisos totales:" "${DB_OPTIONS[@]}")
+                [ -z "$GDB" ] && continue
+                
+                mysql -e "GRANT ALL PRIVILEGES ON \`$GDB\`.* TO '$GUSER'@'%'; FLUSH PRIVILEGES;"
+                msg_box "Exito" "Permisos asignados: $GUSER ahora tiene acceso total a $GDB."
+                ;;
+        esac
+    done
+}
+
 function change_vhost_php() {
     msg_box "Cambiar Versión de PHP" "Esta herramienta te permite cambiar la versión de PHP (FPM) que utiliza un host virtual existente."
     
@@ -1064,10 +1151,11 @@ function main_menu() {
             "9" "Delete Virtual Host" \
             "10" "Reparar Permisos (Fix Permissions)" \
             "11" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
-            "12" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
-            "13" "Cambiar Versión de PHP por Dominio" \
-            "14" "Restart Apache" \
-            "15" "Update Script from GitHub" \
+            "12" "Gestión de MySQL (Instalar/DB/Usuarios)" \
+            "13" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
+            "14" "Cambiar Versión de PHP por Dominio" \
+            "15" "Restart Apache" \
+            "16" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -1082,10 +1170,11 @@ function main_menu() {
             9) delete_domain ;;
             10) fix_permissions ;;
             11) manage_users ;;
-            12) install_sqlsrv ;;
-            13) change_vhost_php ;;
-            14) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            15) 
+            12) manage_mysql ;;
+            13) install_sqlsrv ;;
+            14) change_vhost_php ;;
+            15) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            16) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

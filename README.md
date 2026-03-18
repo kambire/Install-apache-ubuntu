@@ -1,0 +1,56 @@
+# Apache & PHP Installation Script (Ubuntu/Debian)
+
+Este es un script interactivo diseñado para facilitar la instalación y gestión de un servidor Apache con PHP en sistemas **Ubuntu Server 22.04+** y anteriores.
+
+## Características
+
+- 🚀 **Instalación Core**: Apache2 y PHP en un solo paso.
+- 📦 **Módulos de Apache**: Menú interactivo para habilitar módulos conocidos (`rewrite`, `ssl`, `headers`, etc).
+- 🧩 **Extensiones PHP**: Selección y descarga de extensiones comunes (`mysql`, `gd`, `zip`, etc).
+- 🌐 **Gestión de Dominios**: Creador de Virtual Hosts automático con rutas personalizadas.
+- 📂 **Cambio de DocumentRoot**: Permite moficiar la ruta por defecto del servidor globalmente.
+- 🔄 **Actualización**: Script independiente para mantener las herramientas al día.
+
+---
+
+## 🚀 Instalación Rápida
+
+Para instalar el script en una carpeta `/scripts` en el root de tu servidor Ubuntu, ejecuta el siguiente comando como **root**:
+
+```bash
+mkdir -p /scripts && cd /scripts && \
+wget https://raw.githubusercontent.com/kambire/Install-apache-ubuntu/main/install_apache.sh && \
+wget https://raw.githubusercontent.com/kambire/Install-apache-ubuntu/main/update.sh && \
+chmod +x *.sh && \
+./install_apache.sh
+```
+
+### 📋 Requisitos
+
+- Acceso **root** o permisos de **sudo**.
+- Conexión a internet.
+- Basado en **Ubuntu** (Probado en Desktop y Server).
+
+---
+
+## 🔄 Cómo Actualizar
+
+Si ya tienes el script instalado, simplemente ejecuta:
+
+```bash
+./update.sh
+```
+
+---
+
+## 🛠️ Uso del Menú
+
+El script utiliza `whiptail` para una interfaz visual limpia:
+1. Navega con las flechas del teclado.
+2. Usa la **Barra Espaciadora** para selecionar opciones en las listas de verificación (módulos/extensiones).
+3. Presiona **Enter** para confirmar selecciones.
+4. Usa **Tab** para moverte entre los botones de "Ok" y "Cancel".
+
+---
+
+Creado por [kambire](https://github.com/kambire)

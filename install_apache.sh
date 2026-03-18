@@ -122,17 +122,80 @@ function manage_modules() {
 
 function manage_extensions() {
     EXTS=$(checklist "PHP Extensions" "Select the extensions you want to install (Space to toggle):" \
-        "mysql" "MySQL Native Driver" ON \
-        "xml" "XML & DOM support" ON \
-        "mbstring" "Multibyte string support" ON \
-        "zip" "Zip file handling" ON \
-        "gd" "GD Image library" ON \
-        "curl" "CURL HTTP client" ON \
-        "intl" "Internationalization" OFF \
+        "amqp" "AMQP protocol" OFF \
+        "apcu" "APCu cache" OFF \
         "bcmath" "High precision math" OFF \
-        "sqlite3" "SQLite database" OFF \
+        "bitset" "Bitset management" OFF \
+        "brotli" "Brotli compression" OFF \
+        "bz2" "Bzip2 compression" OFF \
+        "calendar" "Calendar conversion" OFF \
+        "curl" "CURL HTTP client" ON \
+        "dba" "Database abstraction" OFF \
+        "dbase" "dBase files" OFF \
+        "dom" "DOM support" ON \
+        "enchant" "Spell checking" OFF \
+        "exif" "Image metadata" OFF \
+        "ffi" "Foreign Function Interface" OFF \
+        "gd" "GD Image library" ON \
+        "gettext" "Translation support" OFF \
+        "gmagick" "GraphicsMagick" OFF \
+        "gmp" "GNU Multiple Precision" OFF \
+        "gnupg" "GnuPG support" OFF \
+        "grpc" "gRPC support" OFF \
+        "http" "HTTP extension" OFF \
+        "igbinary" "Binary serialization" OFF \
         "imagick" "ImageMagick library" OFF \
-        "redis" "Redis cache support" OFF)
+        "imap" "IMAP/POP3 support" OFF \
+        "intl" "Internationalization" OFF \
+        "ldap" "LDAP support" OFF \
+        "lzf" "LZF compression" OFF \
+        "mailparse" "Email parsing" OFF \
+        "mbstring" "Multibyte string support" ON \
+        "mcrypt" "Encryption library" OFF \
+        "memcache" "Memcached support" OFF \
+        "memcached" "Memcached (Libmemcached)" OFF \
+        "mongodb" "MongoDB driver" OFF \
+        "msgpack" "MessagePack" OFF \
+        "mysql" "MySQL support" ON \
+        "mysqli" "MySQLi driver" ON \
+        "oauth" "OAuth support" OFF \
+        "odbc" "ODBC support" OFF \
+        "opcache" "Zend Optimizer" ON \
+        "pcntl" "Process Control" OFF \
+        "pdf" "PDF creation" OFF \
+        "pdo" "PDO core" ON \
+        "pgsql" "PostgreSQL support" OFF \
+        "pspell" "Pspell library" OFF \
+        "psr" "PSR interfaces" OFF \
+        "redis" "Redis cache support" OFF \
+        "rrd" "RRDtool support" OFF \
+        "shmop" "Shared memory" OFF \
+        "simplexml" "SimpleXML support" ON \
+        "snmp" "SNMP support" OFF \
+        "soap" "SOAP protocol" OFF \
+        "sockets" "Socket support" OFF \
+        "sodium" "Sodium encryption" OFF \
+        "solr" "Apache Solr" OFF \
+        "sqlite3" "SQLite database" OFF \
+        "ssh2" "SSH2 support" OFF \
+        "stats" "Statistics" OFF \
+        "swoole" "Swoole engine" OFF \
+        "sysvmsg" "System V messages" OFF \
+        "sysvsem" "System V semaphores" OFF \
+        "sysvshm" "System V shared memory" OFF \
+        "tidy" "Tidy support" OFF \
+        "uploadprogress" "Upload tracking" OFF \
+        "uuid" "UUID support" OFF \
+        "vips" "VIPS library" OFF \
+        "xdebug" "Debugger/Profiler" OFF \
+        "xdiff" "Diff/Patch" OFF \
+        "xml" "XML support" ON \
+        "xmlreader" "XML Reader" OFF \
+        "xmlrpc" "XMLRPC protocol" OFF \
+        "xmlwriter" "XML Writer" OFF \
+        "xsl" "XSLT support" OFF \
+        "yaml" "YAML support" OFF \
+        "zip" "Zip file handling" ON)
     
     if [ -n "$EXTS" ]; then
         # Detect PHP version

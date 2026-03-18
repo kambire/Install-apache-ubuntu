@@ -82,30 +82,44 @@ function yes_no() {
 # ==============================================================================
 
 function install_apache_php() {
-    msg_box "Instalación de Apache y PHP" "Esta sección instalará el servidor web Apache2 y el lenguaje de programación PHP. Podrás elegir la versión que desees (desde 7.4 hasta la última disponible)."
+    msg_box "Instalación de Apache y PHP" "Se instalará Apache y las versiones de PHP que selecciones. Para usar múltiples versiones, se instalará PHP-FPM."
     
-    PHP_VER_CHOICE=$(menu "Seleccionar Versión de PHP" "Elige la versión de PHP que deseas instalar:" \
-        "7.4" "PHP 7.4 (Legacy)" \
-        "8.0" "PHP 8.0" \
-        "8.1" "PHP 8.1" \
-        "8.2" "PHP 8.2" \
-        "8.3" "PHP 8.3" \
-        "8.4" "PHP 8.4 (Latest)")
+    # PHP Version Selection (Checklist for multiple)
+    PHP_VERSIONS=$(checklist "Seleccionar Versiones de PHP" "Elige las versiones de PHP a instalar (Espacio para marcar):" \
+        "8.3" "PHP 8.3 (Latest)" ON \
+        "8.2" "PHP 8.2" OFF \
+        "8.1" "PHP 8.1" OFF \
+        "8.0" "PHP 8.0" OFF \
+        "7.4" "PHP 7.4 (Legacy)" OFF \
+        "7.3" "PHP 7.3" OFF \
+        "7.2" "PHP 7.2" OFF \
+        "7.1" "PHP 7.1" OFF \
+        "7.0" "PHP 7.0" OFF \
+        "5.6" "PHP 5.6 (Old Legacy)" OFF)
     
-    [ -z "$PHP_VER_CHOICE" ] && return
+    [ -z "$PHP_VERSIONS" ] && return
 
-    echo -e "${CYAN}Adding PPA for PHP versions...${NC}"
-    apt-get install -y software-properties-common
-    add-apt-repository ppa:ondrej/php -y
+    echo -e "${CYAN}Agregando repositorio de PHP (PPA)...${NC}"
+    apt-get update && apt-get install -y software-properties-common
+    add-apt-repository -y ppa:ondrej/php
     apt-get update
+
+    echo -e "${CYAN}Instalando Apache...${NC}"
+    apt-get install -y apache2 libapache2-mod-fcgid
     
-    echo -e "${CYAN}Installing Apache2 and PHP $PHP_VER_CHOICE...${NC}"
-    apt-get install -y apache2 php$PHP_VER_CHOICE libapache2-mod-php$PHP_VER_CHOICE curl wget unzip
+    # Enable necessary modules for FPM/Proxy
+    a2enmod proxy proxy_http proxy_fcgi setenvif rewrite ssl headers
     
-    systemctl enable apache2
-    systemctl start apache2
-    
-    msg_box "Success" "Apache2 and PHP $PHP_VER_CHOICE have been installed correctly."
+    for ver in $PHP_VERSIONS; do
+        ver=$(echo $ver | sed 's/"//g')
+        echo -e "${CYAN}Instalando PHP $ver y PHP-FPM...${NC}"
+        apt-get install -y "php$ver" "php$ver-fpm" "php$ver-common" "php$ver-mysql" "php$ver-xml" "php$ver-xmlrpc" "php$ver-curl" "php$ver-gd" "php$ver-imagick" "php$ver-cli" "php$ver-dev" "php$ver-imap" "php$ver-mbstring" "php$ver-opcache" "php$ver-soap" "php$ver-zip" "php$ver-intl" "php$ver-bcmath"
+        systemctl enable "php$ver-fpm"
+        systemctl start "php$ver-fpm"
+    done
+
+    systemctl restart apache2
+    msg_box "Éxito" "Apache y las versiones de PHP ($PHP_VERSIONS) han sido instaladas.\nSe ha configurado PHP-FPM para permitir el uso de múltiples versiones."
 }
 
 function manage_modules() {
@@ -113,6 +127,8 @@ function manage_modules() {
     MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle, Up/Down to scroll):" \
         "rewrite" "Redirects & Friendly URLs (URL Rewrite)" ON \
         "ssl" "Strong cryptography (SSL/TLS)" ON \
+        "proxy_fcgi" "FastCGI support for proxy (REQUIRED for Multi-PHP)" ON \
+        "setenvif" "Environment variables based on request (REQUIRED for Multi-PHP)" ON \
         "headers" "HTTP Header manipulation" OFF \
         "proxy" "Multi-protocol proxy/gateway server" OFF \
         "proxy_http" "Proxy HTTP protocol support" OFF \
@@ -435,16 +451,21 @@ function add_domain() {
     echo -e "${CYAN}Creating directory and setting permissions...${NC}"
     mkdir -p "$VPATH"
     
-    # Identify potential users for ownership (non-system users + root)
+    # Identify potential users for ownership (non-system users + root + manual)
     USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-    USER_OPTIONS=("root" "Root User (Admin)")
+    USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
     for u in $USERS; do
         USER_OPTIONS+=("$u" "Usuario del Sistema")
     done
     USER_OPTIONS+=("www-data" "Web Server User")
     
-    OWNER=$(menu "Seleccionar Dueño (SFTP)" "Selecciona el usuario que será dueño de los archivos para acceso SFTP/SSH:" "${USER_OPTIONS[@]}")
-    [ -z "$OWNER" ] && OWNER="www-data"
+    OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos (usualmente tu usuario SFTP):" "${USER_OPTIONS[@]}")
+    [ -z "$OWNER" ] && return
+
+    if [ "$OWNER" == "MANUAL" ]; then
+        OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
+        [ -z "$OWNER" ] && return
+    fi
     
     chown -R "$OWNER:www-data" "$VPATH"
     find "$VPATH" -type d -exec chmod 2775 {} +
@@ -454,7 +475,7 @@ function add_domain() {
     if command -v setfacl &> /dev/null; then
         setfacl -R -m "u:$OWNER:rwx" "$VPATH"
         setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -m "g:www-data:rwx" "$VPATH"
+        setfacl -R -m "g:www-data:rwx" "$VPATH" "$VPATH"
         setfacl -R -d -m "g:www-data:rwx" "$VPATH"
     fi
 
@@ -471,20 +492,45 @@ function add_domain() {
     
     CONF_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
     
-    echo -e "${CYAN}Creating virtual host configuration...${NC}"
-    cat > "$CONF_FILE" <<EOF
+    # PHP Version Selection for this VHost
+    echo -e "${CYAN}Detectando versiones de PHP instaladas...${NC}"
+    INSTALLED_PHP=$(ls /etc/php/ | grep -E '^[0-9]+\.[0-9]+$')
+    if [ -z "$INSTALLED_PHP" ]; then
+        PHP_VH_VER="default"
+    else
+        PHP_OPTIONS=()
+        for v in $INSTALLED_PHP; do
+            PHP_OPTIONS+=("$v" "PHP-FPM version $v")
+        done
+        PHP_VH_VER=$(menu "Versión de PHP para el VHost" "Selecciona qué versión de PHP quieres usar para este sitio:" "${PHP_OPTIONS[@]}")
+    fi
+    [ -z "$PHP_VH_VER" ] && PHP_VH_VER=$(echo $INSTALLED_PHP | awk '{print $1}')
+    
+    # Configure VirtualHost with PHP-FPM if requested
+    PHP_FPM_CONF=""
+    if [ "$PHP_VH_VER" != "default" ]; then
+        PHP_FPM_CONF="
+    <FilesMatch \.php$>
+        SetHandler \"proxy:unix:/run/php/php$PHP_VH_VER-fpm.sock|fcgi://localhost\"
+    </FilesMatch>"
+    fi
+
+    echo -e "${CYAN}Creando configuración de VirtualHost...${NC}"
+    cat <<EOF > "/etc/apache2/sites-available/$DOMAIN.conf"
 <VirtualHost *:80>
     ServerName $DOMAIN
     ServerAlias www.$DOMAIN
     DocumentRoot $VPATH
-    ErrorLog ${APACHE_LOG_DIR}/error.log
-    CustomLog ${APACHE_LOG_DIR}/access.log combined
-
+    
     <Directory $VPATH>
         Options Indexes FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
+    $PHP_FPM_CONF
+
+    ErrorLog ${APACHE_LOG_DIR}/$DOMAIN-error.log
+    CustomLog ${APACHE_LOG_DIR}/$DOMAIN-access.log combined
 </VirtualHost>
 EOF
     
@@ -643,7 +689,7 @@ function fix_permissions() {
 
     # User selection
     USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-    USER_OPTIONS=("root" "Root User (Admin)")
+    USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
     for u in $USERS; do
         USER_OPTIONS+=("$u" "Usuario del Sistema")
     done
@@ -651,6 +697,11 @@ function fix_permissions() {
     
     OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe tener permisos totales (ej: tu usuario de login):" "${USER_OPTIONS[@]}")
     [ -z "$OWNER" ] && return
+
+    if [ "$OWNER" == "MANUAL" ]; then
+        OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
+        [ -z "$OWNER" ] && return
+    fi
     
     echo -e "${CYAN}Fixing permissions for $VPATH...${NC}"
     chown -R "$OWNER:www-data" "$VPATH"

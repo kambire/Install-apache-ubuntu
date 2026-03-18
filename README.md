@@ -6,8 +6,10 @@ Este es un script interactivo diseñado para facilitar la instalación y gestió
 
 - 🚀 **Instalación Core**: Apache2 y PHP en un solo paso.
 - 📦 **Módulos de Apache**: Menú interactivo para habilitar módulos conocidos (`rewrite`, `ssl`, `headers`, etc).
-- 🧩 **Extensiones PHP**: Selección y descarga de extensiones comunes (`mysql`, `gd`, `zip`, etc).
+- 🧩 **Extensiones PHP**: Selección masiva de más de 80 extensiones disponibles.
+- ➕ **Extensión Personalizada**: Opción para escribir el nombre de cualquier extensión no listada.
 - 🌐 **Gestión de Dominios**: Creador de Virtual Hosts automático con rutas personalizadas.
+- 📋 **Listar/Gestionar VHosts**: Sistema para ver, habilitar o deshabilitar tus sitios existentes.
 - 📂 **Cambio de DocumentRoot**: Permite moficiar la ruta por defecto del servidor globalmente.
 - 🔄 **Actualización**: Script independiente para mantener las herramientas al día.
 

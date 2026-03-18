@@ -121,7 +121,8 @@ function manage_modules() {
 }
 
 function manage_extensions() {
-    EXTS=$(checklist "PHP Extensions" "Select the extensions you want to install (Space to toggle):" \
+    EXTS=$(checklist "PHP Extensions" "Select the extensions (Space to toggle, Up/Down to scroll):" \
+        "40-vld" "vld extension" OFF \
         "amqp" "AMQP protocol" OFF \
         "apcu" "APCu cache" OFF \
         "bcmath" "High precision math" OFF \
@@ -129,25 +130,48 @@ function manage_extensions() {
         "brotli" "Brotli compression" OFF \
         "bz2" "Bzip2 compression" OFF \
         "calendar" "Calendar conversion" OFF \
+        "core" "Core PHP" ON \
+        "ctype" "Ctype functions" ON \
         "curl" "CURL HTTP client" ON \
+        "date" "Date & Time" ON \
         "dba" "Database abstraction" OFF \
         "dbase" "dBase files" OFF \
+        "diseval" "Diseval (Disabled Eval)" OFF \
         "dom" "DOM support" ON \
+        "eio" "EIO extension" OFF \
+        "elastic_apm" "Elastic APM" OFF \
         "enchant" "Spell checking" OFF \
         "exif" "Image metadata" OFF \
         "ffi" "Foreign Function Interface" OFF \
+        "fileinfo" "Fileinfo support" ON \
+        "filter" "Filter input" ON \
+        "ftp" "FTP functions" ON \
         "gd" "GD Image library" ON \
+        "gearman" "Gearman support" OFF \
+        "gender" "Gender database" OFF \
+        "geoip" "GeoIP database" OFF \
+        "geos" "GEOS support" OFF \
         "gettext" "Translation support" OFF \
         "gmagick" "GraphicsMagick" OFF \
         "gmp" "GNU Multiple Precision" OFF \
         "gnupg" "GnuPG support" OFF \
         "grpc" "gRPC support" OFF \
+        "hash" "Hash functions" ON \
+        "htscanner" "htscanner extension" OFF \
         "http" "HTTP extension" OFF \
+        "iconv" "Iconv conversion" ON \
         "igbinary" "Binary serialization" OFF \
         "imagick" "ImageMagick library" OFF \
         "imap" "IMAP/POP3 support" OFF \
+        "inotify" "Inotify support" OFF \
         "intl" "Internationalization" OFF \
+        "ioncube_loader" "IonCube loader" OFF \
+        "jsmin" "Javascript Minifier" OFF \
+        "json" "JSON support" ON \
         "ldap" "LDAP support" OFF \
+        "leveldb" "LevelDB support" OFF \
+        "libxml" "LibXML support" ON \
+        "luasandbox" "Lua sandbox" OFF \
         "lzf" "LZF compression" OFF \
         "mailparse" "Email parsing" OFF \
         "mbstring" "Multibyte string support" ON \
@@ -156,46 +180,84 @@ function manage_extensions() {
         "memcached" "Memcached (Libmemcached)" OFF \
         "mongodb" "MongoDB driver" OFF \
         "msgpack" "MessagePack" OFF \
-        "mysql" "MySQL support" ON \
         "mysqli" "MySQLi driver" ON \
+        "mysqlnd" "MySQL Native Driver" ON \
+        "nd_mysqli" "MySQLnd MySQLi" OFF \
+        "nd_pdo_mysql" "MySQLnd PDO MySQL" OFF \
+        "newrelic" "New Relic agent" OFF \
         "oauth" "OAuth support" OFF \
+        "oci8" "Oracle OCI8" OFF \
         "odbc" "ODBC support" OFF \
-        "opcache" "Zend Optimizer" ON \
+        "opcache" "OPcache" ON \
+        "openssl" "OpenSSL support" ON \
         "pcntl" "Process Control" OFF \
-        "pdf" "PDF creation" OFF \
+        "pcre" "Perl Regex" ON \
+        "pdf" "PDF library" OFF \
         "pdo" "PDO core" ON \
+        "pdo_dblib" "PDO Sybase/MS-SQL" OFF \
+        "pdo_firebird" "PDO Firebird" OFF \
+        "pdo_mysql" "PDO MySQL" ON \
+        "pdo_oci" "PDO Oracle OCI" OFF \
+        "pdo_odbc" "PDO ODBC" OFF \
+        "pdo_pgsql" "PDO PostgreSQL" OFF \
+        "pdo_snowflake" "PDO Snowflake" OFF \
+        "pdo_sqlite" "PDO SQLite" ON \
+        "pdo_sqlsrv" "PDO MS SQL Server" OFF \
         "pgsql" "PostgreSQL support" OFF \
+        "phalcon5" "Phalcon 5 framework" OFF \
+        "phar" "PHAR support" ON \
+        "phpiredis" "Hiredis driver" OFF \
+        "posix" "POSIX functions" ON \
+        "protobuf" "Protobuf support" OFF \
         "pspell" "Pspell library" OFF \
         "psr" "PSR interfaces" OFF \
+        "raphf" "RAPHF extension" OFF \
+        "rar" "RAR archive" OFF \
+        "readline" "Readline support" ON \
         "redis" "Redis cache support" OFF \
+        "reflection" "Reflection classes" ON \
         "rrd" "RRDtool support" OFF \
-        "shmop" "Shared memory" OFF \
+        "scoutapm" "Scout APM" OFF \
+        "session" "Session support" ON \
+        "shmop" "Shared memory" ON \
         "simplexml" "SimpleXML support" ON \
         "snmp" "SNMP support" OFF \
+        "snuffleupagus" "Snuffleupagus security" OFF \
         "soap" "SOAP protocol" OFF \
         "sockets" "Socket support" OFF \
-        "sodium" "Sodium encryption" OFF \
+        "sodium" "Sodium encryption" ON \
         "solr" "Apache Solr" OFF \
-        "sqlite3" "SQLite database" OFF \
+        "sourceguardian" "SourceGuardian" OFF \
+        "spl" "SPL support" ON \
+        "sqlite3" "SQLite database" ON \
+        "sqlsrv" "MS SQL Server" OFF \
         "ssh2" "SSH2 support" OFF \
+        "standard" "Standard PHP" ON \
         "stats" "Statistics" OFF \
         "swoole" "Swoole engine" OFF \
         "sysvmsg" "System V messages" OFF \
         "sysvsem" "System V semaphores" OFF \
         "sysvshm" "System V shared memory" OFF \
+        "tideways_xhprof" "Tideways XHProf" OFF \
         "tidy" "Tidy support" OFF \
+        "timezonedb" "Timezone database" OFF \
+        "tokenizer" "Tokenizer support" ON \
+        "trader" "Stock trader" OFF \
         "uploadprogress" "Upload tracking" OFF \
         "uuid" "UUID support" OFF \
         "vips" "VIPS library" OFF \
         "xdebug" "Debugger/Profiler" OFF \
         "xdiff" "Diff/Patch" OFF \
         "xml" "XML support" ON \
-        "xmlreader" "XML Reader" OFF \
+        "xmlreader" "XML Reader" ON \
         "xmlrpc" "XMLRPC protocol" OFF \
-        "xmlwriter" "XML Writer" OFF \
+        "xmlwriter" "XML Writer" ON \
         "xsl" "XSLT support" OFF \
+        "yaf" "YAF framework" OFF \
         "yaml" "YAML support" OFF \
-        "zip" "Zip file handling" ON)
+        "yaz" "YAZ support" OFF \
+        "zip" "Zip file handling" ON \
+        "zlib" "Zlib compression" ON)
     
     if [ -n "$EXTS" ]; then
         # Detect PHP version
@@ -212,7 +274,8 @@ function manage_extensions() {
         done
         
         # Test if phpX.X-ext exists, if not fallback to php-ext
-        apt-get install -y $APT_EXTS || apt-get install -y $(echo $EXTS | sed "s/ / php-/g" | sed "s/^/php-/")
+        # We suppress errors for core extensions that don't have separate packages
+        apt-get install -y $APT_EXTS 2>/dev/null || apt-get install -y $(echo $EXTS | sed "s/ / php-/g" | sed "s/^/php-/") 2>/dev/null
         
         systemctl restart apache2
         msg_box "Success" "The selected PHP extensions have been installed."

@@ -302,7 +302,51 @@ function install_certbot() {
     echo -e "${CYAN}Installing Certbot for Apache...${NC}"
     apt-get update
     apt-get install -y certbot python3-certbot-apache
-    msg_box "Success" "Certbot has been installed correctly."
+    msg_box "Success" "Certbot has been installed correctly and is ready for use."
+}
+
+function add_ssl_to_existing() {
+    msg_box "SSL para Dominio Existente" "Esta opción permite agregar un certificado SSL de Let's Encrypt a un dominio que ya haya sido configurado o ingresar uno manualmente."
+    
+    # List available configs, excluding defaults and ssl
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    
+    OPTIONS=("Manual" "Ingresar dominio manualmente")
+    for site in $SITES; do
+        OPTIONS+=("$site" "Configuración detectada")
+    done
+    
+    DOMAIN_CHOICE=$(menu "Seleccionar Dominio" "Elige el dominio o selecciona 'Manual':" "${OPTIONS[@]}")
+    
+    [ -z "$DOMAIN_CHOICE" ] && return
+    
+    if [ "$DOMAIN_CHOICE" == "Manual" ]; then
+        DOMAIN=$(input_box "Dominio Manual" "Ingresa el nombre del dominio (ej: ejemplo.com):" "")
+        [ -z "$DOMAIN" ] && return
+    else
+        DOMAIN=$DOMAIN_CHOICE
+    fi
+    
+    # Ask about www alias
+    yes_no "Alias WWW" "¿Deseas incluir el alias 'www.$DOMAIN' en el certificado?"
+    INCLUDE_WWW=$?
+    
+    if ! command -v certbot &> /dev/null; then
+        install_certbot
+    fi
+    
+    echo -e "${CYAN}Running Certbot for $DOMAIN...${NC}"
+    if [ $INCLUDE_WWW -eq 0 ]; then
+        certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
+    else
+        certbot --apache -d "$DOMAIN"
+    fi
+    
+    if [ $? -eq 0 ]; then
+        msg_box "SSL Exitoso" "Certificado SSL configurado correctamente para $DOMAIN."
+    else
+        msg_box "Error" "Hubo un problema al generar el certificado.\n1. Verifica que el dominio apunte a la IP de este servidor.\n2. Asegúrate de que el puerto 80 esté abierto."
+    fi
 }
 
 function add_domain() {
@@ -331,8 +375,8 @@ function add_domain() {
     ServerName $DOMAIN
     ServerAlias www.$DOMAIN
     DocumentRoot $VPATH
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
 
     <Directory $VPATH>
         Options Indexes FollowSymLinks
@@ -462,11 +506,12 @@ function main_menu() {
             "3" "Install Custom PHP Extension" \
             "4" "Install Apache Modules" \
             "5" "Install Certbot (SSL)" \
-            "6" "Add New Virtual Host (Domain)" \
-            "7" "List/Manage Virtual Hosts" \
-            "8" "Change Default DocumentRoot" \
-            "9" "Restart Apache" \
-            "10" "Update Script from GitHub" \
+            "6" "Add New Virtual Host" \
+            "7" "Add SSL to Existing Domain" \
+            "8" "List/Manage Virtual Hosts" \
+            "9" "Change Default DocumentRoot" \
+            "10" "Restart Apache" \
+            "11" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -476,10 +521,11 @@ function main_menu() {
             4) manage_modules ;;
             5) install_certbot ;;
             6) add_domain ;;
-            7) list_vhosts ;;
-            8) change_root ;;
-            9) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            10) 
+            7) add_ssl_to_existing ;;
+            8) list_vhosts ;;
+            9) change_root ;;
+            10) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            11) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

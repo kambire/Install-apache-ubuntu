@@ -289,6 +289,66 @@ EOF
     msg_box "Success" "Default DocumentRoot changed to $NEW_ROOT"
 }
 
+function list_vhosts() {
+    echo -e "${CYAN}Retrieving list of Virtual Hosts...${NC}"
+    # Get enabled sites
+    ENABLED_SITES=$(ls /etc/apache2/sites-enabled/ | grep ".conf$" | sed 's/.conf$//')
+    # Get available but not enabled sites
+    AVAILABLE_SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    
+    MENU_ITEMS=""
+    for site in $ENABLED_SITES; do
+        ROOT_PATH=$(grep "DocumentRoot" /etc/apache2/sites-enabled/$site.conf | awk '{print $2}')
+        MENU_ITEMS="$MENU_ITEMS $site [ENABLED]($ROOT_PATH)"
+    done
+    for site in $AVAILABLE_SITES; do
+        # Check if it's already in the enabled list
+        if [[ ! "$ENABLED_SITES" =~ "$site" ]]; then
+            ROOT_PATH=$(grep "DocumentRoot" /etc/apache2/sites-available/$site.conf | awk '{print $2}')
+            MENU_ITEMS="$MENU_ITEMS $site [AVAILABLE]($ROOT_PATH)"
+        fi
+    done
+
+    if [ -z "$MENU_ITEMS" ]; then
+        msg_box "Info" "No Virtual Hosts found (besides defaults)."
+        return
+    fi
+
+    SELECTED_SITE=$(menu "Virtual Hosts List" "Manage your sites (Name [Status](Path)):" $MENU_ITEMS "Back" "Return to main menu")
+    
+    [ -z "$SELECTED_SITE" ] || [ "$SELECTED_SITE" == "Back" ] && return
+    
+    # Simple action menu for selection
+    ACTION=$(menu "Manage: $SELECTED_SITE" "What do you want to do with this site?" \
+        "1" "Check status (Apache status)" \
+        "2" "Open configuration file" \
+        "3" "Disable site (a2dissite)" \
+        "4" "Enable site (a2ensite)")
+
+    case $ACTION in
+        1) systemctl status apache2 | head -n 20 && read -p "Press enter to return" ;;
+        2) nano "/etc/apache2/sites-available/$SELECTED_SITE.conf" ;;
+        3) a2dissite "$SELECTED_SITE" && systemctl restart apache2 && msg_box "Success" "Site disabled." ;;
+        4) a2ensite "$SELECTED_SITE" && systemctl restart apache2 && msg_box "Success" "Site enabled." ;;
+    esac
+}
+
+function install_custom_extension() {
+    EXT_NAME=$(input_box "Custom PHP Extension" "Enter the name of the PHP extension to install (without php- prefix):" "")
+    [ -z "$EXT_NAME" ] && return
+    
+    PHP_VERS=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
+    
+    echo -e "${CYAN}Attempting to install php$PHP_VERS-$EXT_NAME...${NC}"
+    apt-get update
+    if apt-get install -y "php$PHP_VERS-$EXT_NAME" || apt-get install -y "php-$EXT_NAME"; then
+        systemctl restart apache2
+        msg_box "Success" "Extension $EXT_NAME has been installed."
+    else
+        msg_box "Error" "Could not find package for $EXT_NAME. Try checking the name on PECL or apt."
+    fi
+}
+
 # ==============================================================================
 # Main Execution Loop
 # ==============================================================================
@@ -297,20 +357,24 @@ function main_menu() {
     while true; do
         CHOICE=$(menu "Main Menu" "Select an option to manage your Apache server:" \
             "1" "Install Apache & PHP (Core)" \
-            "2" "Install Apache Modules" \
-            "3" "Install PHP Extensions" \
-            "4" "Add New Virtual Host (Domain)" \
-            "5" "Change Default DocumentRoot" \
-            "6" "Restart Apache" \
+            "2" "Install PHP Extensions (List)" \
+            "3" "Install Custom PHP Extension" \
+            "4" "Install Apache Modules" \
+            "5" "Add New Virtual Host (Domain)" \
+            "6" "List/Manage Virtual Hosts" \
+            "7" "Change Default DocumentRoot" \
+            "8" "Restart Apache" \
             "0" "Exit")
 
         case $CHOICE in
             1) install_apache_php ;;
-            2) manage_modules ;;
-            3) manage_extensions ;;
-            4) add_domain ;;
-            5) change_root ;;
-            6) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            2) manage_extensions ;;
+            3) install_custom_extension ;;
+            4) manage_modules ;;
+            5) add_domain ;;
+            6) list_vhosts ;;
+            7) change_root ;;
+            8) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
             0|*) exit 0 ;;
         esac
     done

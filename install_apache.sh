@@ -938,6 +938,51 @@ function install_sqlsrv() {
     msg_box "Éxito" "Drivers de MSSQL y dblib instalados y activados.\nVerifica el resultado en la terminal."
 }
 
+function change_vhost_php() {
+    msg_box "Cambiar Versión de PHP" "Esta herramienta te permite cambiar la versión de PHP (FPM) que utiliza un host virtual existente."
+    
+    # 1. List VHosts
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    if [ -z "$SITES" ]; then
+        msg_box "Error" "No se encontraron Virtual Hosts personalizados."
+        return
+    fi
+    
+    OPTIONS=()
+    for site in $SITES; do
+        OPTIONS+=("$site" "Configuración de Apache")
+    done
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio que deseas modificar:" "${OPTIONS[@]}")
+    [ -z "$DOMAIN" ] && return
+    
+    CONF_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
+    
+    # 2. List Installed PHP Versions
+    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+    PHP_OPTS=("default" "Usar versión por defecto del sistema")
+    for v in $INSTALLED_PHP; do
+        PHP_OPTS+=("$v" "PHP version $v")
+    done
+    NEW_VER=$(menu "Nueva Versión de PHP" "Selecciona la nueva versión para $DOMAIN:" "${PHP_OPTS[@]}")
+    [ -z "$NEW_VER" ] && return
+    
+    # 3. Update Configuration
+    echo -e "${CYAN}Actualizando configuración para $DOMAIN...${NC}"
+    
+    # Remove existing PHP handler blocks
+    sed -i '/<FilesMatch \\.php$>/,/<\/FilesMatch>/d' "$CONF_FILE"
+    
+    if [ "$NEW_VER" != "default" ]; then
+        # Insert new handler block before the closing </VirtualHost>
+        # We look for the last line and insert before it
+        PHP_BLOCK="    <FilesMatch \\.php$>\n        SetHandler \"proxy:unix:/run/php/php$NEW_VER-fpm.sock|fcgi://localhost\"\n    </FilesMatch>"
+        sed -i "$ i $PHP_BLOCK" "$CONF_FILE"
+    fi
+    
+    systemctl restart apache2
+    msg_box "Éxito" "La versión de PHP para $DOMAIN ha sido actualizada a: $NEW_VER"
+}
+
 function delete_domain() {
     local DOMAIN=$1
     
@@ -1004,8 +1049,9 @@ function main_menu() {
             "10" "Reparar Permisos (Fix Permissions)" \
             "11" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
             "12" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
-            "13" "Restart Apache" \
-            "14" "Update Script from GitHub" \
+            "13" "Cambiar Versión de PHP por Dominio" \
+            "14" "Restart Apache" \
+            "15" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -1021,8 +1067,9 @@ function main_menu() {
             10) fix_permissions ;;
             11) manage_users ;;
             12) install_sqlsrv ;;
-            13) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            14) 
+            13) change_vhost_php ;;
+            14) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            15) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

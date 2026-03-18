@@ -520,6 +520,49 @@ function install_custom_extension() {
     fi
 }
 
+function delete_domain() {
+    msg_box "Eliminar Virtual Host" "CUIDADO: Esta opción eliminará la configuración del dominio y, si lo deseas, también todos sus archivos."
+    
+    # List available configs, excluding current defaults
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    
+    if [ -z "$SITES" ]; then
+        msg_box "Info" "No se encontraron Virtual Hosts personalizados para eliminar."
+        return
+    fi
+    
+    OPTIONS=()
+    for site in $SITES; do
+        OPTIONS+=("$site" "Configuración de Apache")
+    done
+    
+    DOMAIN=$(menu "Seleccionar Dominio para ELIMINAR" "Elige el dominio que deseas borrar permanentemente:" "${OPTIONS[@]}")
+    
+    [ -z "$DOMAIN" ] && return
+    
+    yes_no "Confirmar Eliminación" "¿Estás SEGURO de que deseas eliminar la configuración de $DOMAIN? Esta acción no se puede deshacer."
+    [ $? -ne 0 ] && return
+    
+    # Identify DocumentRoot before deleting config
+    VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
+    
+    echo -e "${RED}Disabling and removing configuration...${NC}"
+    a2dissite "$DOMAIN" &> /dev/null
+    rm "/etc/apache2/sites-available/$DOMAIN.conf"
+    
+    # Optional directory deletion
+    if [ -n "$VPATH" ] && [ -d "$VPATH" ]; then
+        yes_no "Eliminar Archivos" "¿Deseas eliminar también la carpeta del sitio y todo su contenido?\nRuta: $VPATH"
+        if [ $? -eq 0 ]; then
+            echo -e "${RED}Removing directory $VPATH...${NC}"
+            rm -rf "$VPATH"
+        fi
+    fi
+    
+    systemctl restart apache2
+    msg_box "Éxito" "El Virtual Host $DOMAIN ha sido eliminado correctamente."
+}
+
 # ==============================================================================
 # Main Execution Loop
 # ==============================================================================
@@ -535,9 +578,10 @@ function main_menu() {
             "6" "Add New Virtual Host" \
             "7" "Add SSL to Existing Domain" \
             "8" "List/Manage Virtual Hosts" \
-            "9" "Change Default DocumentRoot" \
-            "10" "Restart Apache" \
-            "11" "Update Script from GitHub" \
+            "9" "Delete Virtual Host" \
+            "10" "Change Default DocumentRoot" \
+            "11" "Restart Apache" \
+            "12" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -549,9 +593,10 @@ function main_menu() {
             6) add_domain ;;
             7) add_ssl_to_existing ;;
             8) list_vhosts ;;
-            9) change_root ;;
-            10) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            11) 
+            9) delete_domain ;;
+            10) change_root ;;
+            11) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            12) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

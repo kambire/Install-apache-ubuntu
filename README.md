@@ -11,6 +11,7 @@ Este es un script interactivo diseñado para facilitar la instalación y gestió
 - 🌐 **Gestión de Dominios**: Creador de Virtual Hosts automático con rutas personalizadas.
 - 🔒 **Soporte SSL (Certbot)**: Configuración automática en nuevos VHosts y opción para agregar SSL a dominios existentes (con detección automática o entrada manual).
 - 📋 **Listar/Gestionar VHosts**: Sistema para ver, habilitar o deshabilitar tus sitios existentes.
+- 🗑️ **Eliminar Virtual Host**: Opción para borrar permanentemente la configuración y, opcionalmente, la carpeta del sitio.
 - 📂 **Cambio de DocumentRoot**: Permite modificar la ruta por defecto del servidor globalmente.
 - 🔄 **Actualización**: Script independiente para mantener las herramientas al día.
 

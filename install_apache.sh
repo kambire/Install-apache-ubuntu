@@ -82,6 +82,7 @@ function yes_no() {
 # ==============================================================================
 
 function install_apache_php() {
+    msg_box "Instalación de Apache y PHP" "Esta sección instalará el servidor web Apache2 y el lenguaje de programación PHP en su versión más estable para tu sistema. También habilitará Apache para que inicie automáticamente."
     echo -e "${CYAN}Updating package lists...${NC}"
     apt-get update
     
@@ -96,6 +97,7 @@ function install_apache_php() {
 }
 
 function manage_modules() {
+    msg_box "Gestión de Módulos" "Los módulos de Apache añaden funciones adicionales al servidor (como reescritura de URL o soporte SSL). Selecciona los que quieras activar."
     MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle):" \
         "rewrite" "Redirects & Friendly URLs" ON \
         "ssl" "HTTPS support" ON \
@@ -121,6 +123,7 @@ function manage_modules() {
 }
 
 function manage_extensions() {
+    msg_box "Extensiones PHP" "Aquí puedes seleccionar de una lista predefinida las extensiones de PHP que necesites. El script detectará tu versión de PHP e instalará los paquetes correspondientes."
     EXTS=$(checklist "PHP Extensions" "Select the extensions (Space to toggle, Up/Down to scroll):" \
         "40-vld" "vld extension" OFF \
         "amqp" "AMQP protocol" OFF \
@@ -283,6 +286,7 @@ function manage_extensions() {
 }
 
 function install_certbot() {
+    msg_box "Instalación de Certbot" "Certbot es una herramienta para automatizar el uso de certificados SSL de Let's Encrypt, permitiendo que tu sitio sea seguro (HTTPS) de forma gratuita."
     echo -e "${CYAN}Installing Certbot for Apache...${NC}"
     apt-get update
     apt-get install -y certbot python3-certbot-apache
@@ -290,6 +294,7 @@ function install_certbot() {
 }
 
 function add_domain() {
+    msg_box "Nuevo Host Virtual" "Esta herramienta creará un nuevo archivo de configuración de Virtual Host, creará la carpeta para tu sitio y, si lo deseas, configurará el certificado SSL con Certbot."
     DOMAIN=$(input_box "Domain Name" "Enter the domain name (e.g., example.com):" "example.com")
     [ -z "$DOMAIN" ] && return
     
@@ -343,6 +348,7 @@ EOF
 }
 
 function change_root() {
+    msg_box "Cambiar DocumentRoot" "Esta opción permite cambiar la carpeta raíz (DocumentRoot) por defecto de Apache /var/www/html a cualquier otra ruta de tu elección."
     NEW_ROOT=$(input_box "Default DocumentRoot" "Enter the new path for the default website:" "/var/www/html")
     [ -z "$NEW_ROOT" ] && return
     
@@ -371,6 +377,7 @@ EOF
 }
 
 function list_vhosts() {
+    msg_box "Lista de VHosts" "Aquí puedes ver todos los dominios configurados en este servidor, verificar su estado y habilitarlos o deshabilitarlos según necesites."
     echo -e "${CYAN}Retrieving list of Virtual Hosts...${NC}"
     # Get enabled sites
     ENABLED_SITES=$(ls /etc/apache2/sites-enabled/ | grep ".conf$" | sed 's/.conf$//')
@@ -415,6 +422,7 @@ function list_vhosts() {
 }
 
 function install_custom_extension() {
+    msg_box "Extensión Personalizada" "Si la extensión que buscas no está en la lista, puedes escribir su nombre aquí. El script intentará buscarla e instalarla usando los repositorios de tu sistema."
     EXT_NAME=$(input_box "Custom PHP Extension" "Enter the name of the PHP extension to install (without php- prefix):" "")
     [ -z "$EXT_NAME" ] && return
     

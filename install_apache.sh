@@ -441,36 +441,28 @@ function add_ssl_to_existing() {
 }
 
 function add_domain() {
-    msg_box "Nuevo Host Virtual" "Esta herramienta creará un nuevo archivo de configuración de Virtual Host, creará la carpeta para tu sitio y, si lo deseas, configurará el certificado SSL con Certbot."
-    DOMAIN=$(input_box "Domain Name" "Enter the domain name (e.g., example.com):" "example.com")
+    msg_box "Nuevo Host Virtual" "Esta herramienta creará un nuevo archivo de configuración de Virtual Host, la carpeta para tu sitio y configurará el usuario y PHP."
+    
+    # 1. Basic Info
+    DOMAIN=$(input_box "Dominio" "Introduce el dominio (ej: ejemplo.com):" "ejemplo.com")
     [ -z "$DOMAIN" ] && return
     
-    VPATH=$(input_box "Document Root" "Enter the full path for this domain:" "/var/www/$DOMAIN")
+    VPATH=$(input_box "Ruta Web" "Introduce la ruta para la carpeta del sitio:" "/var/www/$DOMAIN")
     [ -z "$VPATH" ] && return
     
-    echo -e "${CYAN}Creating directory and setting permissions...${NC}"
-    mkdir -p "$VPATH"
-    
-    # Create User selection
+    # 2. User/Owner Selection
+    NEW_USER_CHOICE=""
+    OWNER=""
     yes_no "Nuevo Usuario" "¿Deseas crear un nuevo usuario dedicado para este dominio?"
     if [ $? -eq 0 ]; then
-        # Generate username: lowercase, remove dots/extensions
-        NEW_USER=$(echo "$DOMAIN" | cut -d'.' -f1 | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
-        # Ensure it's not already taken
-        if id "$NEW_USER" &>/dev/null; then
-            NEW_USER="${NEW_USER}_$(tr -dc '[:alnum:]' < /dev/urandom | head -c 4)"
+        NEW_USER_CHOICE="YES"
+        # Generate username
+        OWNER=$(echo "$DOMAIN" | cut -d'.' -f1 | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
+        if id "$OWNER" &>/dev/null; then
+            OWNER="${OWNER}_$(tr -dc '[:alnum:]' < /dev/urandom | head -c 4)"
         fi
-        
-        # Generate random password
         NEW_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
-        
-        echo -e "${CYAN}Creando usuario $NEW_USER...${NC}"
-        useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$NEW_USER"
-        echo "$NEW_USER:$NEW_PASS" | chpasswd
-        OWNER="$NEW_USER"
-        CREDS_MSG="\n--- CREDENCIALES NUEVAS ---\nUsuario: $NEW_USER\nPassword: $NEW_PASS\n---------------------------"
     else
-        # Identify potential users for ownership (non-system users + root + manual)
         USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
         USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
         for u in $USERS; do
@@ -478,44 +470,17 @@ function add_domain() {
         done
         USER_OPTIONS+=("www-data" "Web Server User")
         
-        OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos (usualmente tu usuario SFTP):" "${USER_OPTIONS[@]}")
+        OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos:" "${USER_OPTIONS[@]}")
         [ -z "$OWNER" ] && return
 
         if [ "$OWNER" == "MANUAL" ]; then
             OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
             [ -z "$OWNER" ] && return
         fi
-        CREDS_MSG=""
-    fi
-    
-    chown -R "$OWNER:www-data" "$VPATH"
-    find "$VPATH" -type d -exec chmod 2775 {} +
-    find "$VPATH" -type f -exec chmod 0664 {} +
-    
-    # Advanced ACLs if available
-    if command -v setfacl &> /dev/null; then
-        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
-        setfacl -R -m "g:www-data:rwx" "$VPATH" "$VPATH"
-        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
     fi
 
-    # Add user to www-data group if not already
-    if [ "$OWNER" != "www-data" ]; then
-        usermod -a -G www-data "$OWNER"
-        msg_box "Permisos de Usuario" "El usuario '$OWNER' ha sido configurado como dueño y añadido al grupo 'www-data'.\n\nIMPORTANTE: Reinicia tu sesión SSH/SFTP para aplicar los cambios."
-    fi
-    
-    # Create index file if not exists
-    if [ ! -f "$VPATH/index.html" ]; then
-        echo "<h1>Welcome to $DOMAIN</h1>" > "$VPATH/index.html"
-    fi
-    
-    CONF_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
-    
-    # PHP Version Selection for this VHost
-    echo -e "${CYAN}Detectando versiones de PHP instaladas...${NC}"
-    INSTALLED_PHP=$(ls /etc/php/ | grep -E '^[0-9]+\.[0-9]+$')
+    # 3. PHP Version Selection
+    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
     if [ -z "$INSTALLED_PHP" ]; then
         PHP_VH_VER="default"
     else
@@ -523,11 +488,47 @@ function add_domain() {
         for v in $INSTALLED_PHP; do
             PHP_OPTIONS+=("$v" "PHP-FPM version $v")
         done
-        PHP_VH_VER=$(menu "Versión de PHP para el VHost" "Selecciona qué versión de PHP quieres usar para este sitio:" "${PHP_OPTIONS[@]}")
+        PHP_VH_VER=$(menu "Versión de PHP" "Selecciona la versión de PHP para este sitio:" "${PHP_OPTIONS[@]}")
+        [ -z "$PHP_VH_VER" ] && PHP_VH_VER=$(echo $INSTALLED_PHP | awk '{print $1}')
     fi
-    [ -z "$PHP_VH_VER" ] && PHP_VH_VER=$(echo $INSTALLED_PHP | awk '{print $1}')
+
+    # 4. SSL Preference
+    yes_no "SSL Certificado" "¿Deseas intentar instalar un certificado SSL con Certbot ahora?"
+    WANT_SSL=$?
+
+    # --- EXECUTION PHASE ---
+    echo -e "${CYAN}Creating directory $VPATH...${NC}"
+    mkdir -p "$VPATH"
     
-    # Configure VirtualHost with PHP-FPM if requested
+    if [ "$NEW_USER_CHOICE" == "YES" ]; then
+        echo -e "${CYAN}Creando usuario $OWNER...${NC}"
+        useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$OWNER"
+        echo "$OWNER:$NEW_PASS" | chpasswd
+        CREDS_MSG="\n--- CREDENCIALES NUEVAS ---\nUsuario: $OWNER\nPassword: $NEW_PASS\n---------------------------"
+    else
+        CREDS_MSG=""
+    fi
+
+    echo -e "${CYAN}Setting ownership to $OWNER:www-data...${NC}"
+    chown -R "$OWNER:www-data" "$VPATH"
+    find "$VPATH" -type d -exec chmod 2775 {} +
+    find "$VPATH" -type f -exec chmod 0664 {} +
+    
+    if command -v setfacl &> /dev/null; then
+        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -m "g:www-data:rwx" "$VPATH"
+        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
+    fi
+
+    if [ "$OWNER" != "www-data" ]; then
+        usermod -a -G www-data "$OWNER"
+    fi
+    
+    if [ ! -f "$VPATH/index.html" ]; then
+        echo "<h1>Welcome to $DOMAIN</h1>" > "$VPATH/index.html"
+    fi
+    
     PHP_FPM_CONF=""
     if [ "$PHP_VH_VER" != "default" ]; then
         PHP_FPM_CONF="
@@ -550,29 +551,20 @@ function add_domain() {
     </Directory>
     $PHP_FPM_CONF
 
-    ErrorLog ${APACHE_LOG_DIR}/$DOMAIN-error.log
-    CustomLog ${APACHE_LOG_DIR}/$DOMAIN-access.log combined
+    ErrorLog \${APACHE_LOG_DIR}/$DOMAIN-error.log
+    CustomLog \${APACHE_LOG_DIR}/$DOMAIN-access.log combined
 </VirtualHost>
 EOF
     
     a2ensite "$DOMAIN.conf"
     systemctl restart apache2
     
-    # SSL Support with Certbot
-    yes_no "SSL Support" "Do you want to configure SSL for $DOMAIN using Certbot?"
-    if [ $? -eq 0 ]; then
+    # 5. SSL Execution
+    if [ $WANT_SSL -eq 0 ]; then
         if ! command -v certbot &> /dev/null; then
-            echo -e "${YELLOW}Certbot not found. Installing now...${NC}"
             apt-get install -y certbot python3-certbot-apache
         fi
-        # Check DNS resolution
-        echo -e "${CYAN}Verificando DNS para $DOMAIN...${NC}"
-        if ! host "$DOMAIN" &> /dev/null; then
-            echo -e "${YELLOW}Warning: $DOMAIN does not resolve to an IP. SSL might fail.${NC}"
-        fi
-
-        echo -e "${CYAN}Running Certbot for $DOMAIN...${NC}"
-        # Check if www resolves before adding it
+        echo -e "${CYAN}Iniciando Certbot para $DOMAIN...${NC}"
         if host "www.$DOMAIN" &> /dev/null; then
              certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
         else
@@ -580,7 +572,7 @@ EOF
         fi
     fi
     
-    msg_box "Success" "Virtual Host for $DOMAIN has been created and enabled.\nSSL setup attempted if requested.\nPath: $VPATH"
+    msg_box "Éxito" "Configuración completada para $DOMAIN.\nCarpeta: $VPATH\nPHP: $PHP_VH_VER$CREDS_MSG"
 }
 
 function change_root() {

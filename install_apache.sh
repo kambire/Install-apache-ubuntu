@@ -579,7 +579,12 @@ EOF
         fi
     fi
     
-    msg_box "Éxito" "Configuración completada para $DOMAIN.\nCarpeta: $VPATH\nPHP: $PHP_VH_VER$CREDS_MSG"
+    if [ -n "$CREDS_MSG" ]; then
+        msg_box "CREDENCIALES OBTENIDAS" "$CREDS_MSG"
+        echo -e "${GREEN}$CREDS_MSG${NC}"
+    fi
+
+    msg_box "Éxito" "Configuración completada para $DOMAIN.\nCarpeta: $VPATH\nPHP: $PHP_VH_VER"
 }
 
 function change_root() {
@@ -763,11 +768,90 @@ Password: $NEW_PASS
     fi
 
     # Diagnostics
-    DIAG=$(ls -ld "$VPATH")
-    DIAG_FILES=$(ls -la "$VPATH" | head -n 10)
-    USER_INFO=$(id "$OWNER")
-    
-    msg_box "Reparación Completa" "Permisos reparados para $DOMAIN.\n\nDIAGNÓSTICO:\nCarpeta: $DIAG\nInfo Usuario: $USER_INFO\n\nRECUERDA: Cierra y vuelve a abrir tu sesión SFTP/SSH para aplicar cambios.$CREDS_MSG"
+    if [ -n "$CREDS_MSG" ]; then
+        msg_box "CREDENCIALES OBTENIDAS" "$CREDS_MSG"
+        echo -e "${GREEN}$CREDS_MSG${NC}"
+    fi
+
+    msg_box "Reparación Completa" "Permisos reparados para $DOMAIN.\n\nDIAGNÓSTICO:\nCarpeta: $DIAG\nInfo Usuario: $USER_INFO\n\nRECUERDA: Cierra y vuelve a abrir tu sesión SFTP/SSH para aplicar cambios."
+}
+
+function manage_users() {
+    while true; do
+        UCHOICE=$(whiptail --title "Gestión de Usuarios" --menu "Selecciona una acción:" 15 60 4 \
+            "1" "Crear Nuevo Usuario (SFTP)" \
+            "2" "Eliminar Usuario" \
+            "3" "Cambiar Contraseña" \
+            "4" "Atrás" 3>&1 1>&2 2>&3)
+        
+        [ -z "$UCHOICE" ] || [ "$UCHOICE" == "4" ] && break
+        
+        case $UCHOICE in
+            1)
+                USERNAME=$(input_box "Nuevo Usuario" "Introduce el nombre del usuario (letras y números):")
+                [ -z "$USERNAME" ] && continue
+                
+                if id "$USERNAME" &>/dev/null; then
+                    msg_box "Error" "El usuario ya existe."
+                    continue
+                fi
+                
+                HDIR=$(input_box "Directorio Home" "Introduce la carpeta raíz para este usuario (ej: /var/www/dominio):" "/var/www/$USERNAME")
+                [ -z "$HDIR" ] && continue
+                mkdir -p "$HDIR"
+                
+                yes_no "Contraseña" "¿Deseas generar una contraseña aleatoria?"
+                if [ $? -eq 0 ]; then
+                    PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
+                else
+                    PASSWORD=$(input_box "Contraseña" "Introduce la contraseña:")
+                fi
+                [ -z "$PASSWORD" ] && continue
+                
+                useradd -m -d "$HDIR" -s /usr/sbin/nologin -G www-data "$USERNAME"
+                echo "$USERNAME:$PASSWORD" | chpasswd
+                chown -R "$USERNAME:www-data" "$HDIR"
+                
+                msg_box "Usuario Creado" "Usuario: $USERNAME\nPassword: $PASSWORD\nDirectorio: $HDIR"
+                echo -e "${GREEN}Usuario: $USERNAME | Password: $PASSWORD | Directorio: $HDIR${NC}"
+                ;;
+                
+            2)
+                # List non-system users
+                USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+                U_OPTIONS=()
+                for u in $USERS; do
+                    U_OPTIONS+=("$u" "Usuario del Sistema")
+                done
+                
+                DEL_USER=$(menu "Eliminar Usuario" "Selecciona el usuario que deseas borrar:" "${U_OPTIONS[@]}")
+                [ -z "$DEL_USER" ] && continue
+                
+                yes_no "Confirmar" "¿Estás seguro de que quieres eliminar a $DEL_USER? Los archivos NO se borrarán."
+                if [ $? -eq 0 ]; then
+                    userdel "$DEL_USER"
+                    msg_box "Éxito" "Usuario $DEL_USER eliminado."
+                fi
+                ;;
+                
+            3)
+                USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+                U_OPTIONS=()
+                for u in $USERS; do
+                    U_OPTIONS+=("$u" "Usuario del Sistema")
+                done
+                
+                P_USER=$(menu "Cambiar Password" "Selecciona el usuario:" "${U_OPTIONS[@]}")
+                [ -z "$P_USER" ] && continue
+                
+                NEW_P=$(input_box "Nueva Contraseña" "Introduce la nueva contraseña para $P_USER:")
+                [ -z "$NEW_P" ] && continue
+                
+                echo "$P_USER:$NEW_P" | chpasswd
+                msg_box "Éxito" "Contraseña actualizada para $P_USER."
+                ;;
+        esac
+    done
 }
 
 function delete_domain() {
@@ -833,8 +917,8 @@ function main_menu() {
             "7" "Add SSL to Existing Domain" \
             "8" "List/Manage Virtual Hosts" \
             "9" "Delete Virtual Host" \
-            "10" "Fix Permissions (SFTP/SSH)" \
-            "11" "Change Default DocumentRoot" \
+            "10" "Reparar Permisos (Fix Permissions)" \
+            "11" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
             "12" "Restart Apache" \
             "13" "Update Script from GitHub" \
             "0" "Exit")
@@ -850,7 +934,7 @@ function main_menu() {
             8) list_vhosts ;;
             9) delete_domain ;;
             10) fix_permissions ;;
-            11) change_root ;;
+            11) manage_users ;;
             12) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
             13) 
                 if [ -f "./update.sh" ]; then

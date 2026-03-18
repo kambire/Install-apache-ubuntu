@@ -451,20 +451,41 @@ function add_domain() {
     echo -e "${CYAN}Creating directory and setting permissions...${NC}"
     mkdir -p "$VPATH"
     
-    # Identify potential users for ownership (non-system users + root + manual)
-    USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-    USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
-    for u in $USERS; do
-        USER_OPTIONS+=("$u" "Usuario del Sistema")
-    done
-    USER_OPTIONS+=("www-data" "Web Server User")
-    
-    OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos (usualmente tu usuario SFTP):" "${USER_OPTIONS[@]}")
-    [ -z "$OWNER" ] && return
-
-    if [ "$OWNER" == "MANUAL" ]; then
-        OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
+    # Create User selection
+    yes_no "Nuevo Usuario" "¿Deseas crear un nuevo usuario dedicado para este dominio?"
+    if [ $? -eq 0 ]; then
+        # Generate username: lowercase, remove dots/extensions
+        NEW_USER=$(echo "$DOMAIN" | cut -d'.' -f1 | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
+        # Ensure it's not already taken
+        if id "$NEW_USER" &>/dev/null; then
+            NEW_USER="${NEW_USER}_$(tr -dc '[:alnum:]' < /dev/urandom | head -c 4)"
+        fi
+        
+        # Generate random password
+        NEW_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
+        
+        echo -e "${CYAN}Creando usuario $NEW_USER...${NC}"
+        useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$NEW_USER"
+        echo "$NEW_USER:$NEW_PASS" | chpasswd
+        OWNER="$NEW_USER"
+        CREDS_MSG="\n--- CREDENCIALES NUEVAS ---\nUsuario: $NEW_USER\nPassword: $NEW_PASS\n---------------------------"
+    else
+        # Identify potential users for ownership (non-system users + root + manual)
+        USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+        USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
+        for u in $USERS; do
+            USER_OPTIONS+=("$u" "Usuario del Sistema")
+        done
+        USER_OPTIONS+=("www-data" "Web Server User")
+        
+        OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos (usualmente tu usuario SFTP):" "${USER_OPTIONS[@]}")
         [ -z "$OWNER" ] && return
+
+        if [ "$OWNER" == "MANUAL" ]; then
+            OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
+            [ -z "$OWNER" ] && return
+        fi
+        CREDS_MSG=""
     fi
     
     chown -R "$OWNER:www-data" "$VPATH"
@@ -689,7 +710,7 @@ function fix_permissions() {
 
     # User selection
     USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-    USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
+    USER_OPTIONS=("root" "Root User (Admin)" "NEW" "CREAR NUEVO USUARIO" "MANUAL" "Escribir usuario manualmente")
     for u in $USERS; do
         USER_OPTIONS+=("$u" "Usuario del Sistema")
     done
@@ -698,7 +719,22 @@ function fix_permissions() {
     OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe tener permisos totales (ej: tu usuario de login):" "${USER_OPTIONS[@]}")
     [ -z "$OWNER" ] && return
 
-    if [ "$OWNER" == "MANUAL" ]; then
+    CREDS_MSG=""
+    if [ "$OWNER" == "NEW" ]; then
+        SUGGESTED_USER=$(echo "$DOMAIN" | cut -d'.' -f1 | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
+        if [ "$DOMAIN" == "GLOBAL" ]; then SUGGESTED_USER="www_admin"; fi
+        
+        NEW_USER=$(input_box "Nuevo Usuario" "Introduce el nombre del nuevo usuario:" "$SUGGESTED_USER")
+        [ -z "$NEW_USER" ] && return
+        
+        NEW_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
+        
+        echo -e "${CYAN}Creando usuario $NEW_USER...${NC}"
+        useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$NEW_USER"
+        echo "$NEW_USER:$NEW_PASS" | chpasswd
+        OWNER="$NEW_USER"
+        CREDS_MSG="\n--- CREDENCIALES NUEVAS ---\nUsuario: $NEW_USER\nPassword: $NEW_PASS\n---------------------------"
+    elif [ "$OWNER" == "MANUAL" ]; then
         OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
         [ -z "$OWNER" ] && return
     fi
@@ -727,7 +763,7 @@ function fix_permissions() {
     DIAG_FILES=$(ls -la "$VPATH" | head -n 10)
     USER_INFO=$(id "$OWNER")
     
-    msg_box "Reparación Completa" "Permisos reparados para $DOMAIN.\n\nDIAGNÓSTICO:\nCarpeta: $DIAG\nInfo Usuario: $USER_INFO\n\nRECUERDA: Cierra y vuelve a abrir tu sesión SFTP/SSH para aplicar cambios."
+    msg_box "Reparación Completa" "Permisos reparados para $DOMAIN.\n\nDIAGNÓSTICO:\nCarpeta: $DIAG\nInfo Usuario: $USER_INFO\n\nRECUERDA: Cierra y vuelve a abrir tu sesión SFTP/SSH para aplicar cambios.$CREDS_MSG"
 }
 
 function delete_domain() {

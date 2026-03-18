@@ -447,12 +447,13 @@ function add_domain() {
     [ -z "$OWNER" ] && OWNER="www-data"
     
     chown -R "$OWNER:www-data" "$VPATH"
-    find "$VPATH" -type d -exec chmod 775 {} +
-    find "$VPATH" -type f -exec chmod 664 {} +
+    find "$VPATH" -type d -exec chmod 2775 {} +
+    find "$VPATH" -type f -exec chmod 0664 {} +
     
     # Add user to www-data group if not already
     if [ "$OWNER" != "www-data" ]; then
         usermod -a -G www-data "$OWNER"
+        msg_box "Permisos de Usuario" "El usuario '$OWNER' ha sido configurado como dueño y añadido al grupo 'www-data'.\nRecuerda reiniciar tu sesión SSH para aplicar los cambios de grupo."
     fi
     
     # Create index file if not exists
@@ -640,11 +641,14 @@ function fix_permissions() {
     
     echo -e "${CYAN}Fixing permissions for $VPATH...${NC}"
     chown -R "$OWNER:www-data" "$VPATH"
-    find "$VPATH" -type d -exec chmod 775 {} +
-    find "$VPATH" -type f -exec chmod 664 {} +
+    # Set 775 and group sticky bit on directories
+    find "$VPATH" -type d -exec chmod 2775 {} +
+    # Set 664 on files
+    find "$VPATH" -type f -exec chmod 0664 {} +
     
     if [ "$OWNER" != "www-data" ]; then
         usermod -a -G www-data "$OWNER"
+        msg_box "Aviso Importante" "Se ha añadido al usuario '$OWNER' al grupo 'www-data'.\n\nPARA QUE LOS CAMBIOS SURTAN EFECTO:\nDebes cerrar tu sesión actual de SSH/SFTP y volver a entrar."
     fi
     
     msg_box "Éxito" "Permisos reparados para $DOMAIN.\nDueño: $OWNER\nGrupo: www-data\nModo: 775/664"

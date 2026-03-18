@@ -887,8 +887,18 @@ function manage_users() {
 }
 
 function install_sqlsrv() {
-    msg_box "Instalación de Drivers MSSQL & dblib" "Esta opción instalará los drivers de Microsoft para SQL Server y las extensiones 'sqlsrv', 'pdo_sqlsrv' y 'pdo_dblib' para todas tus versiones de PHP instaladas. Esto garantiza compatibilidad con WebEngine y otros CMS de Mu Online."
+    msg_box "Instalación de Drivers MSSQL & dblib" "Esta opción instalará los drivers de Microsoft para SQL Server y las extensiones 'sqlsrv', 'pdo_sqlsrv' y 'pdo_dblib'.\n\nHemos añadido la opción de seleccionar versiones múltiples para asegurar la compatibilidad con WebEngine y otros CMS."
     
+    # 1. Version Selection
+    PHP_VERSIONS=$(whiptail --title "Versiones de PHP" --checklist "Selecciona las versiones de PHP para los drivers MSSQL:" 15 60 4 \
+        "8.1" "PHP 8.1" ON \
+        "8.2" "PHP 8.2" ON \
+        "8.3" "PHP 8.3" ON \
+        "8.4" "PHP 8.4" ON 3>&1 1>&2 2>&3)
+    
+    [ -z "$PHP_VERSIONS" ] && return
+    PHP_VERSIONS=$(echo $PHP_VERSIONS | sed 's/"//g')
+
     echo -e "${CYAN}Adding Microsoft Repository...${NC}"
     curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
     curl -fsSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
@@ -897,16 +907,23 @@ function install_sqlsrv() {
     echo -e "${CYAN}Installing MS ODBC Drivers...${NC}"
     ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
     
-    # Detect installed PHP versions
-    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
-    if [ -z "$INSTALLED_PHP" ]; then
-        msg_box "Error" "No se detectaron versiones de PHP instaladas en /etc/php/"
-        return
-    fi
-    
-    for v in $INSTALLED_PHP; do
+    for v in $PHP_VERSIONS; do
+        echo -e "${CYAN}Procesando PHP $v...${NC}"
+        
+        # Check if PHP version is installed
+        if [ ! -d "/etc/php/$v" ]; then
+            yes_no "Instalar PHP $v" "La versión PHP $v no parece estar instalada. ¿Deseas instalarla ahora?"
+            if [ $? -eq 0 ]; then
+                apt-get install -y "php$v-fpm" "php$v-cli" "php$v-common"
+                a2enmod proxy_fcgi setenvif
+                a2enconf "php$v-fpm"
+            else
+                echo -e "${YELLOW}Saltando PHP $v...${NC}"
+                continue
+            fi
+        fi
+
         echo -e "${CYAN}Instalando extensiones PHP $v para MSSQL (sqlsrv & dblib)...${NC}"
-        # Install sqlsrv and sybase (dblib)
         apt-get install -y "php$v-sqlsrv" "php$v-sybase" 2>/dev/null
         
         # Fallback if apt fails (PECL method)
@@ -930,12 +947,11 @@ function install_sqlsrv() {
     
     systemctl restart apache2
     
-    # Verify drivers visually for the user
-    echo -e "${GREEN}Verificando drivers cargados (PHP Default):${NC}"
+    # Verify drivers visually
+    echo -e "${GREEN}Resumen de Drivers (PHP Default):${NC}"
     php -m | grep -E "sqlsrv|dblib"
-    php -r "print_r(PDO::getAvailableDrivers());"
     
-    msg_box "Éxito" "Drivers de MSSQL y dblib instalados y activados.\nVerifica el resultado en la terminal."
+    msg_box "Éxito" "Drivers de MSSQL y dblib instalados en las versiones seleccionadas."
 }
 
 function change_vhost_php() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.5.4 (Reverse Proxy Support)
+# Version: 1.5.5 (SSL Diagnostic Tool)
 # ==============================================================================
 
 # Colors for terminal output
@@ -1150,6 +1150,56 @@ function change_vhost_php() {
     msg_box "Éxito" "La versión de PHP para $DOMAIN ha sido actualizada a: $NEW_VER"
 }
 
+function diagnose_ssl() {
+    msg_box "Diagnóstico SSL" "Esta herramienta buscará problemas comunes que causan errores de SSL (como RX_RECORD_TOO_LONG)."
+    
+    # 1. Module check
+    echo -e "${CYAN}Verificando módulos de Apache...${NC}"
+    SSL_MOD=$(apache2ctl -M | grep ssl)
+    if [ -z "$SSL_MOD" ]; then
+        yes_no "Módulo SSL" "El módulo 'ssl' no está activo. ¿Deseas activarlo ahora?"
+        if [ $? -eq 0 ]; then
+            a2enmod ssl
+            systemctl restart apache2
+            msg_box "Módulo SSL" "Módulo 'ssl' activado y Apache reiniciado."
+        fi
+    fi
+
+    # 2. Port check
+    if ! grep -q "Listen 443" /etc/apache2/ports.conf; then
+        msg_box "Aviso" "No se detectó 'Listen 443' en ports.conf. Esto causará que SSL no funcione."
+    fi
+
+    # 3. Domain check
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio para diagnosticar su SSL:" "${SITES[@]}")
+    
+    if [ -n "$DOMAIN" ]; then
+        SSL_FILE="/etc/apache2/sites-available/$DOMAIN-le-ssl.conf"
+        NORMAL_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
+        
+        if [ ! -f "$SSL_FILE" ]; then
+            msg_box "SSL No Encontrado" "No se encontró el archivo -le-ssl.conf para $DOMAIN. Esto indica que Certbot no ha configurado SSL aún para este dominio."
+            return
+        fi
+
+        # Check for SSLEngine on
+        if ! grep -qi "SSLEngine on" "$SSL_FILE"; then
+            msg_box "ERROR CRÍTICO" "El archivo SSL de $DOMAIN no tiene 'SSLEngine on'. Esto causará el error RX_RECORD_TOO_LONG.\nIntentando corregir..."
+            sed -i '/<VirtualHost \*:443>/a \    SSLEngine on' "$SSL_FILE"
+            systemctl reload apache2
+            msg_box "Reparación" "Se ha insertado 'SSLEngine on' en $SSL_FILE y recargado Apache."
+        fi
+
+        # Check for certificate files
+        if ! grep -qi "SSLCertificateFile" "$SSL_FILE"; then
+            msg_box "Error" "Faltan las rutas de los certificados en $SSL_FILE. Se recomienda volver a ejecutar Certbot (Opción 5)."
+        fi
+        
+        msg_box "Diagnóstico Completado" "Se han verificado los parámetros básicos para $DOMAIN."
+    fi
+}
+
 function delete_domain() {
     local DOMAIN=$1
     
@@ -1220,6 +1270,7 @@ function main_menu() {
             "14" "Cambiar Versión de PHP por Dominio" \
             "15" "Restart Apache" \
             "16" "Update Script from GitHub" \
+            "17" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
             "0" "Exit")
 
         case $CHOICE in
@@ -1246,6 +1297,7 @@ function main_menu() {
                     msg_box "Error" "Update script (update.sh) not found in the current directory."
                 fi
                 ;;
+            17) diagnose_ssl ;;
             0|*) exit 0 ;;
         esac
     done

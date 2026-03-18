@@ -504,7 +504,14 @@ function add_domain() {
         echo -e "${CYAN}Creando usuario $OWNER...${NC}"
         useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$OWNER"
         echo "$OWNER:$NEW_PASS" | chpasswd
-        CREDS_MSG="\n--- CREDENCIALES NUEVAS ---\nUsuario: $OWNER\nPassword: $NEW_PASS\n---------------------------"
+        
+        # Build multiline message for whiptail and console
+        CREDS_MSG="
+--- CREDENCIALES PARA SFTP ---
+Usuario: $OWNER
+Password: $NEW_PASS
+-----------------------------"
+        echo -e "${GREEN}$CREDS_MSG${NC}"
     else
         CREDS_MSG=""
     fi
@@ -725,7 +732,12 @@ function fix_permissions() {
         useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$NEW_USER"
         echo "$NEW_USER:$NEW_PASS" | chpasswd
         OWNER="$NEW_USER"
-        CREDS_MSG="\n--- CREDENCIALES NUEVAS ---\nUsuario: $NEW_USER\nPassword: $NEW_PASS\n---------------------------"
+        CREDS_MSG="
+--- CREDENCIALES PARA SFTP ---
+Usuario: $NEW_USER
+Password: $NEW_PASS
+-----------------------------"
+        echo -e "${GREEN}$CREDS_MSG${NC}"
     elif [ "$OWNER" == "MANUAL" ]; then
         OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
         [ -z "$OWNER" ] && return

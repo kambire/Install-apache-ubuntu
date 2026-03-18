@@ -887,7 +887,7 @@ function manage_users() {
 }
 
 function install_sqlsrv() {
-    msg_box "Instalación de Drivers MSSQL" "Esta opción instalará los drivers de Microsoft para SQL Server y las extensiones 'sqlsrv' y 'pdo_sqlsrv' para todas tus versiones de PHP instaladas."
+    msg_box "Instalación de Drivers MSSQL & dblib" "Esta opción instalará los drivers de Microsoft para SQL Server y las extensiones 'sqlsrv', 'pdo_sqlsrv' y 'pdo_dblib' para todas tus versiones de PHP instaladas. Esto garantiza compatibilidad con WebEngine y otros CMS de Mu Online."
     
     echo -e "${CYAN}Adding Microsoft Repository...${NC}"
     curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
@@ -905,9 +905,9 @@ function install_sqlsrv() {
     fi
     
     for v in $INSTALLED_PHP; do
-        echo -e "${CYAN}Instalando extensiones PHP $v para MSSQL...${NC}"
-        # Try APT first (Cleaner for multi-php)
-        apt-get install -y "php$v-sqlsrv" 2>/dev/null
+        echo -e "${CYAN}Instalando extensiones PHP $v para MSSQL (sqlsrv & dblib)...${NC}"
+        # Install sqlsrv and sybase (dblib)
+        apt-get install -y "php$v-sqlsrv" "php$v-sybase" 2>/dev/null
         
         # Fallback if apt fails (PECL method)
         if [ $? -ne 0 ]; then
@@ -919,15 +919,23 @@ function install_sqlsrv() {
              # Create ini files if pecl doesn't
              echo "extension=sqlsrv.so" > "/etc/php/$v/mods-available/sqlsrv.ini"
              echo "extension=pdo_sqlsrv.so" > "/etc/php/$v/mods-available/pdo_sqlsrv.ini"
-             phpenmod -v "$v" sqlsrv pdo_sqlsrv
         fi
+        
+        # Ensure all are enabled
+        phpenmod -v "$v" pdo_dblib sqlsrv pdo_sqlsrv 2>/dev/null
         
         # Restart FPM for this version
         systemctl restart "php$v-fpm" 2>/dev/null
     done
     
     systemctl restart apache2
-    msg_box "Éxito" "Drivers de MSSQL instalados. Puedes verificarlo con 'php -m | grep sqlsrv'"
+    
+    # Verify drivers visually for the user
+    echo -e "${GREEN}Verificando drivers cargados (PHP Default):${NC}"
+    php -m | grep -E "sqlsrv|dblib"
+    php -r "print_r(PDO::getAvailableDrivers());"
+    
+    msg_box "Éxito" "Drivers de MSSQL y dblib instalados y activados.\nVerifica el resultado en la terminal."
 }
 
 function delete_domain() {
@@ -995,7 +1003,7 @@ function main_menu() {
             "9" "Delete Virtual Host" \
             "10" "Reparar Permisos (Fix Permissions)" \
             "11" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
-            "12" "Instalar Drivers MSSQL (sqlsrv)" \
+            "12" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
             "13" "Restart Apache" \
             "14" "Update Script from GitHub" \
             "0" "Exit")

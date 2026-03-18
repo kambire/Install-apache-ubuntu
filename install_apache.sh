@@ -335,7 +335,22 @@ function add_ssl_to_existing() {
         install_certbot
     fi
     
+    # Check DNS resolution
+    echo -e "${CYAN}Verificando DNS para $DOMAIN...${NC}"
+    if ! host "$DOMAIN" &> /dev/null; then
+        msg_box "Advertencia DNS" "El dominio $DOMAIN no parece resolver a ninguna IP. Certbot podría fallar.\nVerifica tus registros A en el panel de tu dominio."
+    fi
+
     echo -e "${CYAN}Running Certbot for $DOMAIN...${NC}"
+    if [ $INCLUDE_WWW -eq 0 ]; then
+        if ! host "www.$DOMAIN" &> /dev/null; then
+             yes_no "Advertencia WWW" "El dominio 'www.$DOMAIN' no resuelve por DNS. ¿Deseas intentar continuar de todas formas? (Se recomienda No si no tienes el registro CNAME/A creado)"
+             if [ $? -ne 0 ]; then
+                 INCLUDE_WWW=1 # Force no WWW
+             fi
+        fi
+    fi
+
     if [ $INCLUDE_WWW -eq 0 ]; then
         certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
     else
@@ -396,8 +411,19 @@ EOF
             echo -e "${YELLOW}Certbot not found. Installing now...${NC}"
             apt-get install -y certbot python3-certbot-apache
         fi
+        # Check DNS resolution
+        echo -e "${CYAN}Verificando DNS para $DOMAIN...${NC}"
+        if ! host "$DOMAIN" &> /dev/null; then
+            echo -e "${YELLOW}Warning: $DOMAIN does not resolve to an IP. SSL might fail.${NC}"
+        fi
+
         echo -e "${CYAN}Running Certbot for $DOMAIN...${NC}"
-        certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
+        # Check if www resolves before adding it
+        if host "www.$DOMAIN" &> /dev/null; then
+             certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
+        else
+             certbot --apache -d "$DOMAIN"
+        fi
     fi
     
     msg_box "Success" "Virtual Host for $DOMAIN has been created and enabled.\nSSL setup attempted if requested.\nPath: $VPATH"

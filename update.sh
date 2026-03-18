@@ -23,22 +23,28 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
-echo -e "${CYAN}Checking for updates on GitHub...${NC}"
-git fetch origin
+# Check if it's a git repository
+if [ -d .git ]; then
+    echo -e "${CYAN}Checking for updates on GitHub (via Git)...${NC}"
+    git fetch origin &> /dev/null
+    
+    LOCAL=$(git rev-parse HEAD)
+    REMOTE=$(git rev-parse @{u})
 
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse @{u})
+    if [ "$LOCAL" = "$REMOTE" ]; then
+        echo -e "${GREEN}The script is already up to date!${NC}"
+        exit 0
+    fi
 
-if [ "$LOCAL" = "$REMOTE" ]; then
-    echo -e "${GREEN}The script is already up to date!${NC}"
-    exit 0
+    echo -e "${YELLOW}Updates found!${NC}"
+    echo -e "${CYAN}Summary of changes:${NC}"
+    git log --oneline --graph --max-count=5 HEAD..@{u}
+    
+    echo -e "\n${CYAN}Applying updates...${NC}"
+else
+    echo -e "${YELLOW}Non-git environment detected (manual install).${NC}"
+    echo -e "${CYAN}Updating files from GitHub...${NC}"
 fi
-
-echo -e "${YELLOW}Updates found!${NC}"
-echo -e "${CYAN}Summary of changes:${NC}"
-git log --oneline --graph --max-count=5 HEAD..@{u}
-
-echo -e "\n${CYAN}Applying updates...${NC}"
 
 # Progress bar function
 show_progress() {
@@ -63,17 +69,22 @@ show_progress() {
 
 show_progress 2
 
-git pull origin main
-
-if [ $? -eq 0 ]; then
-    chmod +x install_apache.sh update.sh
-    echo -e "${GREEN}================================================================${NC}"
-    echo -e "${GREEN}       Script updated successfully to the latest version!      ${NC}"
-    echo -e "${GREEN}================================================================${NC}"
+if [ -d .git ]; then
+    git pull origin main
+    if [ $? -eq 0 ]; then
+        chmod +x install_apache.sh update.sh
+        echo -e "${GREEN}================================================================${NC}"
+        echo -e "${GREEN}       Script updated successfully to the latest version!      ${NC}"
+        echo -e "${GREEN}================================================================${NC}"
+    else
+        echo -e "${RED}Error during git pull. Please check manually.${NC}"
+        exit 1
+    fi
 else
-    echo -e "${CYAN}Non-git environment detected. Downloading latest version...${NC}"
     wget -q https://raw.githubusercontent.com/kambire/Install-apache-ubuntu/main/install_apache.sh -O install_apache.sh
     wget -q https://raw.githubusercontent.com/kambire/Install-apache-ubuntu/main/update.sh -O update.sh
     chmod +x *.sh
-    echo -e "${GREEN}Script updated via direct download.${NC}"
+    echo -e "${GREEN}================================================================${NC}"
+    echo -e "${GREEN}   Script updated successfully via direct download!           ${NC}"
+    echo -e "${GREEN}================================================================${NC}"
 fi

@@ -110,17 +110,77 @@ function install_apache_php() {
 
 function manage_modules() {
     msg_box "Gestión de Módulos" "Los módulos de Apache añaden funciones adicionales al servidor (como reescritura de URL o soporte SSL). Selecciona los que quieras activar."
-    MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle):" \
-        "rewrite" "Redirects & Friendly URLs" ON \
-        "ssl" "HTTPS support" ON \
+    MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle, Up/Down to scroll):" \
+        "rewrite" "Redirects & Friendly URLs (URL Rewrite)" ON \
+        "ssl" "Strong cryptography (SSL/TLS)" ON \
         "headers" "HTTP Header manipulation" OFF \
-        "proxy" "Proxy support" OFF \
-        "proxy_http" "Proxy HTTP protocol" OFF \
-        "expires" "Caching headers" OFF \
-        "deflate" "Compression support" OFF \
-        "env" "Environment variables" OFF \
-        "mime" "Mime types management" OFF \
-        "vhost_alias" "Dynamic Virtual Hosts" OFF)
+        "proxy" "Multi-protocol proxy/gateway server" OFF \
+        "proxy_http" "Proxy HTTP protocol support" OFF \
+        "proxy_fcgi" "FastCGI support for proxy" OFF \
+        "proxy_balancer" "Load balancing support for proxy" OFF \
+        "proxy_connect" "CONNECT request handling (HTTPS proxying)" OFF \
+        "proxy_http2" "HTTP/2 support module for proxy" OFF \
+        "http2" "Support for the HTTP/2 transport layer" OFF \
+        "expires" "Generation of Expires and Cache-Control headers" OFF \
+        "deflate" "Gzip/Compression support" OFF \
+        "brotli" "Brotli compression support" OFF \
+        "env" "Environment variables modification" OFF \
+        "mime" "Mime types and extension management" OFF \
+        "vhost_alias" "Dynamic mass virtual hosting" OFF \
+        "actions" "Execute CGI scripts based on media type" OFF \
+        "alias" "Mapping and URL redirection" OFF \
+        "allowmethods" "Restrict what HTTP methods can be used" OFF \
+        "auth_basic" "Basic HTTP authentication" OFF \
+        "auth_digest" "User authentication using MD5 Digest" OFF \
+        "auth_form" "Form authentication" OFF \
+        "authn_dbd" "User authentication using SQL database" OFF \
+        "authn_dbm" "User authentication using DBM files" OFF \
+        "authn_file" "User authentication using text files" OFF \
+        "authn_socache" "Cache of authentication credentials" OFF \
+        "authz_dbd" "Group Authorization and Login using SQL" OFF \
+        "authz_dbm" "Group authorization using DBM files" OFF \
+        "authz_groupfile" "Group authorization using plaintext files" OFF \
+        "authz_host" "Group authorizations based on host/IP" OFF \
+        "authz_owner" "Authorization based on file ownership" OFF \
+        "authz_user" "User Authorization" OFF \
+        "autoindex" "Generates directory indexes automatically" OFF \
+        "cache" "RFC 2616 compliant HTTP caching filter" OFF \
+        "cache_disk" "Disk based storage for the caching filter" OFF \
+        "cgi" "Execution of CGI scripts" OFF \
+        "cgid" "Execution of CGI scripts using external daemon" OFF \
+        "dav" "Distributed Authoring and Versioning (WebDAV)" OFF \
+        "dav_fs" "Filesystem provider for mod_dav" OFF \
+        "dbd" "Manages SQL database connections" OFF \
+        "ext_filter" "Pass response through external program" OFF \
+        "file_cache" "Caches static list of files in memory" OFF \
+        "filter" "Context-sensitive smart filter configuration" OFF \
+        "include" "Server Side Includes (SSI) support" OFF \
+        "info" "Overview of the server configuration" OFF \
+        "ldap" "LDAP connection pooling and result caching" OFF \
+        "log_debug" "Additional configurable debug logging" OFF \
+        "log_forensic" "Forensic Logging of requests" OFF \
+        "lua" "Lua hooks into request processing" OFF \
+        "macro" "Macros within configuration files" OFF \
+        "md" "Managed domains (ACME/Let's Encrypt support)" OFF \
+        "ratelimit" "Bandwidth Rate Limiting for Clients" OFF \
+        "remoteip" "Original client IP from proxies/balancers" OFF \
+        "reqtimeout" "Set timeout for receiving requests" OFF \
+        "sed" "Filter content using sed syntax" OFF \
+        "session" "Session support" OFF \
+        "session_cookie" "Cookie based session support" OFF \
+        "session_crypto" "Session encryption support" OFF \
+        "setenvif" "Set env variables based on request traits" OFF \
+        "socache_redis" "Redis based shared object cache" OFF \
+        "socache_shmcb" "shmcb based shared object cache" OFF \
+        "speling" "Attempts to correct minor URL misspellings" OFF \
+        "status" "Information on server activity/performance" OFF \
+        "substitute" "Search and replace on response bodies" OFF \
+        "suexec" "Run CGI scripts as specified user/group" OFF \
+        "unique_id" "Unique identifier for each request" OFF \
+        "userdir" "User-specific directories (~user)" OFF \
+        "usertrack" "Clickstream logging of user activity" OFF \
+        "version" "Version dependent configuration" OFF \
+        "xml2enc" "Internationalisation support for libxml2")
     
     if [ -n "$MODS" ]; then
         echo -e "${CYAN}Enabling selected modules...${NC}"

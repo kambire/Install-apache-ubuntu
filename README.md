@@ -5,7 +5,7 @@ Este es un script interactivo diseñado para facilitar la instalación y gestió
 ## Características
 
 - 🚀 **Instalación Core**: Apache2 y PHP en un solo paso.
-- 📦 **Módulos de Apache**: Menú interactivo para habilitar módulos conocidos (`rewrite`, `ssl`, `headers`, etc).
+- 📦 **Módulos de Apache**: Menú interactivo ampliado con más de 80 módulos conocidos (`rewrite`, `ssl`, `proxy`, `http2`, etc).
 - 🧩 **Extensiones PHP**: Selección masiva de más de 80 extensiones disponibles.
 - ➕ **Extensión Personalizada**: Opción para escribir el nombre de cualquier extensión no listada.
 - 🌐 **Gestión de Dominios**: Creador de Virtual Hosts automático con rutas personalizadas.

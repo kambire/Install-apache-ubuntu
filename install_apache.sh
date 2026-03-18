@@ -374,8 +374,26 @@ function add_domain() {
     
     echo -e "${CYAN}Creating directory and setting permissions...${NC}"
     mkdir -p "$VPATH"
-    chown -R $USER:$USER "$VPATH"
-    chmod -R 755 "$VPATH"
+    
+    # Identify potential users for ownership (non-system users)
+    USERS=$(awk -F' ' '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+    USER_OPTIONS=()
+    for u in $USERS; do
+        USER_OPTIONS+=("$u" "Usuario del Sistema")
+    done
+    USER_OPTIONS+=("www-data" "Web Server User")
+    
+    OWNER=$(menu "Seleccionar Dueño (SFTP)" "Selecciona el usuario que será dueño de los archivos para acceso SFTP/SSH:" "${USER_OPTIONS[@]}")
+    [ -z "$OWNER" ] && OWNER="www-data"
+    
+    chown -R "$OWNER:www-data" "$VPATH"
+    find "$VPATH" -type d -exec chmod 775 {} +
+    find "$VPATH" -type f -exec chmod 664 {} +
+    
+    # Add user to www-data group if not already
+    if [ "$OWNER" != "www-data" ]; then
+        usermod -a -G www-data "$OWNER"
+    fi
     
     # Create index file if not exists
     if [ ! -f "$VPATH/index.html" ]; then
@@ -520,6 +538,56 @@ function install_custom_extension() {
     fi
 }
 
+function fix_permissions() {
+    msg_box "Reparar Permisos (SFTP/SSH)" "Esta herramienta ajustará el dueño y los permisos de un sitio para que puedas editar archivos vía SFTP/SSH sin problemas."
+    
+    # List available configs
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    
+    if [ -z "$SITES" ]; then
+        msg_box "Info" "No se encontraron Virtual Hosts para reparar."
+        return
+    fi
+    
+    OPTIONS=()
+    for site in $SITES; do
+        OPTIONS+=("$site" "Configuración detectada")
+    done
+    
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio cuyos permisos deseas reparar:" "${OPTIONS[@]}")
+    [ -z "$DOMAIN" ] && return
+    
+    # Identify DocumentRoot
+    VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
+    
+    if [ -z "$VPATH" ] || [ ! -d "$VPATH" ]; then
+        msg_box "Error" "No se pudo encontrar la carpeta del sitio o no existe."
+        return
+    fi
+    
+    # User selection
+    USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+    USER_OPTIONS=()
+    for u in $USERS; do
+        USER_OPTIONS+=("$u" "Usuario del Sistema")
+    done
+    USER_OPTIONS+=("www-data" "Web Server User")
+    
+    OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe tener permisos de edición (ej: tu usuario de login):" "${USER_OPTIONS[@]}")
+    [ -z "$OWNER" ] && return
+    
+    echo -e "${CYAN}Fixing permissions for $VPATH...${NC}"
+    chown -R "$OWNER:www-data" "$VPATH"
+    find "$VPATH" -type d -exec chmod 775 {} +
+    find "$VPATH" -type f -exec chmod 664 {} +
+    
+    if [ "$OWNER" != "www-data" ]; then
+        usermod -a -G www-data "$OWNER"
+    fi
+    
+    msg_box "Éxito" "Permisos reparados para $DOMAIN.\nDueño: $OWNER\nGrupo: www-data\nModo: 775/664"
+}
+
 function delete_domain() {
     msg_box "Eliminar Virtual Host" "CUIDADO: Esta opción eliminará la configuración del dominio y, si lo deseas, también todos sus archivos."
     
@@ -579,9 +647,10 @@ function main_menu() {
             "7" "Add SSL to Existing Domain" \
             "8" "List/Manage Virtual Hosts" \
             "9" "Delete Virtual Host" \
-            "10" "Change Default DocumentRoot" \
-            "11" "Restart Apache" \
-            "12" "Update Script from GitHub" \
+            "10" "Fix Permissions (SFTP/SSH)" \
+            "11" "Change Default DocumentRoot" \
+            "12" "Restart Apache" \
+            "13" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -594,9 +663,10 @@ function main_menu() {
             7) add_ssl_to_existing ;;
             8) list_vhosts ;;
             9) delete_domain ;;
-            10) change_root ;;
-            11) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            12) 
+            10) fix_permissions ;;
+            11) change_root ;;
+            12) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            13) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

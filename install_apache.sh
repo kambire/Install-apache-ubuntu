@@ -851,6 +851,50 @@ function manage_users() {
     done
 }
 
+function install_sqlsrv() {
+    msg_box "Instalación de Drivers MSSQL" "Esta opción instalará los drivers de Microsoft para SQL Server y las extensiones 'sqlsrv' y 'pdo_sqlsrv' para todas tus versiones de PHP instaladas."
+    
+    echo -e "${CYAN}Adding Microsoft Repository...${NC}"
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+    curl -fsSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
+    
+    apt-get update
+    echo -e "${CYAN}Installing MS ODBC Drivers...${NC}"
+    ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+    
+    # Detect installed PHP versions
+    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+    if [ -z "$INSTALLED_PHP" ]; then
+        msg_box "Error" "No se detectaron versiones de PHP instaladas en /etc/php/"
+        return
+    fi
+    
+    for v in $INSTALLED_PHP; do
+        echo -e "${CYAN}Instalando extensiones PHP $v para MSSQL...${NC}"
+        # Try APT first (Cleaner for multi-php)
+        apt-get install -y "php$v-sqlsrv" 2>/dev/null
+        
+        # Fallback if apt fails (PECL method)
+        if [ $? -ne 0 ]; then
+             echo -e "${YELLOW}Apt failed for php$v-sqlsrv, trying PECL...${NC}"
+             apt-get install -y "php$v-dev" "php$v-xml" php-pear
+             printf "\n" | pecl install sqlsrv
+             printf "\n" | pecl install pdo_sqlsrv
+             
+             # Create ini files if pecl doesn't
+             echo "extension=sqlsrv.so" > "/etc/php/$v/mods-available/sqlsrv.ini"
+             echo "extension=pdo_sqlsrv.so" > "/etc/php/$v/mods-available/pdo_sqlsrv.ini"
+             phpenmod -v "$v" sqlsrv pdo_sqlsrv
+        fi
+        
+        # Restart FPM for this version
+        systemctl restart "php$v-fpm" 2>/dev/null
+    done
+    
+    systemctl restart apache2
+    msg_box "Éxito" "Drivers de MSSQL instalados. Puedes verificarlo con 'php -m | grep sqlsrv'"
+}
+
 function delete_domain() {
     local DOMAIN=$1
     
@@ -916,8 +960,9 @@ function main_menu() {
             "9" "Delete Virtual Host" \
             "10" "Reparar Permisos (Fix Permissions)" \
             "11" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
-            "12" "Restart Apache" \
-            "13" "Update Script from GitHub" \
+            "12" "Instalar Drivers MSSQL (sqlsrv)" \
+            "13" "Restart Apache" \
+            "14" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -932,8 +977,9 @@ function main_menu() {
             9) delete_domain ;;
             10) fix_permissions ;;
             11) manage_users ;;
-            12) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            13) 
+            12) install_sqlsrv ;;
+            13) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            14) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

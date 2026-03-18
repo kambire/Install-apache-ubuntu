@@ -615,21 +615,20 @@ function fix_permissions() {
     # List available configs
     SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
     
-    if [ -z "$SITES" ]; then
-        msg_box "Info" "No se encontraron Virtual Hosts para reparar."
-        return
-    fi
-    
-    OPTIONS=()
+    OPTIONS=("GLOBAL" "Toda la carpeta /var/www (Acceso total)")
     for site in $SITES; do
         OPTIONS+=("$site" "Configuración detectada")
     done
     
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio cuyos permisos deseas reparar:" "${OPTIONS[@]}")
+    DOMAIN=$(menu "Seleccionar Dominio o Global" "Elige el dominio o selecciona GLOBAL para toda la carpeta /var/www:" "${OPTIONS[@]}")
     [ -z "$DOMAIN" ] && return
     
-    # Identify DocumentRoot
-    VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
+    if [ "$DOMAIN" == "GLOBAL" ]; then
+        VPATH="/var/www"
+    else
+        # Identify DocumentRoot
+        VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
+    fi
     
     if [ -z "$VPATH" ] || [ ! -d "$VPATH" ]; then
         msg_box "Error" "No se pudo encontrar la carpeta del sitio o no existe."

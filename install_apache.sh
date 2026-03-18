@@ -82,18 +82,30 @@ function yes_no() {
 # ==============================================================================
 
 function install_apache_php() {
-    msg_box "Instalación de Apache y PHP" "Esta sección instalará el servidor web Apache2 y el lenguaje de programación PHP en su versión más estable para tu sistema. También habilitará Apache para que inicie automáticamente."
-    echo -e "${CYAN}Updating package lists...${NC}"
+    msg_box "Instalación de Apache y PHP" "Esta sección instalará el servidor web Apache2 y el lenguaje de programación PHP. Podrás elegir la versión que desees (desde 7.4 hasta la última disponible)."
+    
+    PHP_VER_CHOICE=$(menu "Seleccionar Versión de PHP" "Elige la versión de PHP que deseas instalar:" \
+        "7.4" "PHP 7.4 (Legacy)" \
+        "8.0" "PHP 8.0" \
+        "8.1" "PHP 8.1" \
+        "8.2" "PHP 8.2" \
+        "8.3" "PHP 8.3" \
+        "8.4" "PHP 8.4 (Latest)")
+    
+    [ -z "$PHP_VER_CHOICE" ] && return
+
+    echo -e "${CYAN}Adding PPA for PHP versions...${NC}"
+    apt-get install -y software-properties-common
+    add-apt-repository ppa:ondrej/php -y
     apt-get update
     
-    echo -e "${CYAN}Installing Apache2, PHP and essential tools...${NC}"
-    apt-get install -y apache2 php libapache2-mod-php curl wget unzip
+    echo -e "${CYAN}Installing Apache2 and PHP $PHP_VER_CHOICE...${NC}"
+    apt-get install -y apache2 php$PHP_VER_CHOICE libapache2-mod-php$PHP_VER_CHOICE curl wget unzip
     
     systemctl enable apache2
     systemctl start apache2
     
-    PHP_V=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
-    msg_box "Success" "Apache2 and PHP $PHP_V have been installed correctly."
+    msg_box "Success" "Apache2 and PHP $PHP_VER_CHOICE have been installed correctly."
 }
 
 function manage_modules() {
@@ -454,6 +466,7 @@ function main_menu() {
             "7" "List/Manage Virtual Hosts" \
             "8" "Change Default DocumentRoot" \
             "9" "Restart Apache" \
+            "10" "Update Script from GitHub" \
             "0" "Exit")
 
         case $CHOICE in
@@ -466,6 +479,14 @@ function main_menu() {
             7) list_vhosts ;;
             8) change_root ;;
             9) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            10) 
+                if [ -f "./update.sh" ]; then
+                    bash ./update.sh
+                    exit 0
+                else
+                    msg_box "Error" "Update script (update.sh) not found in the current directory."
+                fi
+                ;;
             0|*) exit 0 ;;
         esac
     done

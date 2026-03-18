@@ -450,10 +450,18 @@ function add_domain() {
     find "$VPATH" -type d -exec chmod 2775 {} +
     find "$VPATH" -type f -exec chmod 0664 {} +
     
+    # Advanced ACLs if available
+    if command -v setfacl &> /dev/null; then
+        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -m "g:www-data:rwx" "$VPATH"
+        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
+    fi
+
     # Add user to www-data group if not already
     if [ "$OWNER" != "www-data" ]; then
         usermod -a -G www-data "$OWNER"
-        msg_box "Permisos de Usuario" "El usuario '$OWNER' ha sido configurado como dueño y añadido al grupo 'www-data'.\nRecuerda reiniciar tu sesión SSH para aplicar los cambios de grupo."
+        msg_box "Permisos de Usuario" "El usuario '$OWNER' ha sido configurado como dueño y añadido al grupo 'www-data'.\n\nIMPORTANTE: Reinicia tu sesión SSH/SFTP para aplicar los cambios."
     fi
     
     # Create index file if not exists
@@ -628,6 +636,12 @@ function fix_permissions() {
         return
     fi
     
+    # Ensure ACL package is installed if possible
+    if ! command -v setfacl &> /dev/null; then
+        echo -e "${YELLOW}Installing ACL support for better permissions...${NC}"
+        apt-get update && apt-get install -y acl
+    fi
+
     # User selection
     USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
     USER_OPTIONS=()
@@ -636,22 +650,34 @@ function fix_permissions() {
     done
     USER_OPTIONS+=("www-data" "Web Server User")
     
-    OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe tener permisos de edición (ej: tu usuario de login):" "${USER_OPTIONS[@]}")
+    OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe tener permisos totales (ej: tu usuario de login):" "${USER_OPTIONS[@]}")
     [ -z "$OWNER" ] && return
     
     echo -e "${CYAN}Fixing permissions for $VPATH...${NC}"
     chown -R "$OWNER:www-data" "$VPATH"
-    # Set 775 and group sticky bit on directories
     find "$VPATH" -type d -exec chmod 2775 {} +
-    # Set 664 on files
     find "$VPATH" -type f -exec chmod 0664 {} +
     
+    # Apply ACLs
+    if command -v setfacl &> /dev/null; then
+        echo -e "${CYAN}Applying ACLs for $OWNER and www-data...${NC}"
+        setfacl -R -b "$VPATH" # Clear existing ACLs
+        setfacl -R -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -d -m "u:$OWNER:rwx" "$VPATH"
+        setfacl -R -m "g:www-data:rwx" "$VPATH"
+        setfacl -R -d -m "g:www-data:rwx" "$VPATH"
+    fi
+
     if [ "$OWNER" != "www-data" ]; then
         usermod -a -G www-data "$OWNER"
-        msg_box "Aviso Importante" "Se ha añadido al usuario '$OWNER' al grupo 'www-data'.\n\nPARA QUE LOS CAMBIOS SURTAN EFECTO:\nDebes cerrar tu sesión actual de SSH/SFTP y volver a entrar."
     fi
+
+    # Diagnostics
+    DIAG=$(ls -ld "$VPATH")
+    DIAG_FILES=$(ls -la "$VPATH" | head -n 10)
+    USER_INFO=$(id "$OWNER")
     
-    msg_box "Éxito" "Permisos reparados para $DOMAIN.\nDueño: $OWNER\nGrupo: www-data\nModo: 775/664"
+    msg_box "Reparación Completa" "Permisos reparados para $DOMAIN.\n\nDIAGNÓSTICO:\nCarpeta: $DIAG\nInfo Usuario: $USER_INFO\n\nRECUERDA: Cierra y vuelve a abrir tu sesión SFTP/SSH para aplicar cambios."
 }
 
 function delete_domain() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.5.3 (Hard Sync Fix)
+# Version: 1.5.4 (Reverse Proxy Support)
 # ==============================================================================
 
 # Colors for terminal output
@@ -473,97 +473,111 @@ function apply_permissions() {
 }
 
 function add_domain() {
-    msg_box "Nuevo Host Virtual" "Esta herramienta creará un nuevo archivo de configuración de Virtual Host, la carpeta para tu sitio y configurará el usuario y PHP."
+    msg_box "Nuevo Host Virtual" "Esta herramienta creará un nuevo archivo de configuración de Virtual Host. Podrás elegir entre un sitio local (físico en este server) o un Proxy (apuntar a otra IP)."
     
     # 1. Basic Info
     DOMAIN=$(input_box "Dominio" "Introduce el dominio (ej: ejemplo.com):" "ejemplo.com")
     [ -z "$DOMAIN" ] && return
     
-    VPATH=$(input_box "Ruta Web" "Introduce la ruta para la carpeta del sitio:" "/var/www/$DOMAIN")
-    [ -z "$VPATH" ] && return
-    
-    # 2. User/Owner Selection
-    NEW_USER_CHOICE=""
-    OWNER=""
-    yes_no "Nuevo Usuario" "¿Deseas crear un nuevo usuario dedicado para este dominio?"
-    if [ $? -eq 0 ]; then
-        NEW_USER_CHOICE="YES"
-        # Generate username
-        OWNER=$(echo "$DOMAIN" | cut -d'.' -f1 | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
-        if id "$OWNER" &>/dev/null; then
-            OWNER="${OWNER}_$(tr -dc '[:alnum:]' < /dev/urandom | head -c 4)"
-        fi
-        NEW_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
-    else
-        USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
-        USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
-        for u in $USERS; do
-            USER_OPTIONS+=("$u" "Usuario del Sistema")
-        done
-        USER_OPTIONS+=("www-data" "Web Server User")
-        
-        OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos:" "${USER_OPTIONS[@]}")
-        [ -z "$OWNER" ] && return
+    # Check if domain already exists
+    if [ -f "/etc/apache2/sites-available/$DOMAIN.conf" ]; then
+        msg_box "Error" "El dominio $DOMAIN ya existe."
+        return
+    fi
 
-        if [ "$OWNER" == "MANUAL" ]; then
-            OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
+    # Selection: Local vs Proxy
+    VTYPE=$(whiptail --title "Tipo de VHost" --menu "Selecciona el tipo de Virtual Host para $DOMAIN:" 15 60 2 \
+        "local" "Local (Archivos en esta PC + SFTP)" \
+        "proxy" "Proxy (Redirigir a otra PC/IP/Puerto)" 3>&1 1>&2 2>&3)
+    
+    [ -z "$VTYPE" ] && return
+
+    if [ "$VTYPE" == "local" ]; then
+        VPATH=$(input_box "Ruta Web" "Introduce la ruta para la carpeta del sitio:" "/var/www/$DOMAIN")
+        [ -z "$VPATH" ] && return
+        
+        # 2. User/Owner Selection
+        NEW_USER_CHOICE=""
+        OWNER=""
+        yes_no "Nuevo Usuario" "¿Deseas crear un nuevo usuario dedicado para este dominio?"
+        if [ $? -eq 0 ]; then
+            NEW_USER_CHOICE="YES"
+            # Generate username
+            OWNER=$(echo "$DOMAIN" | cut -d'.' -f1 | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
+            if id "$OWNER" &>/dev/null; then
+                OWNER="${OWNER}_$(tr -dc '[:alnum:]' < /dev/urandom | head -c 4)"
+            fi
+            NEW_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
+        else
+            USERS=$(awk -F: '{ if ($3 >= 1000 && $3 != 65534) print $1 }' /etc/passwd)
+            USER_OPTIONS=("root" "Root User (Admin)" "MANUAL" "Escribir usuario manualmente")
+            for u in $USERS; do
+                USER_OPTIONS+=("$u" "Usuario del Sistema")
+            done
+            USER_OPTIONS+=("www-data" "Web Server User")
+            
+            OWNER=$(menu "Seleccionar Dueño" "Elige el usuario que debe ser dueño de los archivos:" "${USER_OPTIONS[@]}")
             [ -z "$OWNER" ] && return
-        fi
-    fi
-
-    # 3. PHP Version Selection
-    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
-    if [ -z "$INSTALLED_PHP" ]; then
-        PHP_VH_VER="default"
-    else
-        PHP_OPTIONS=()
-        for v in $INSTALLED_PHP; do
-            PHP_OPTIONS+=("$v" "PHP-FPM version $v")
-        done
-        PHP_VH_VER=$(menu "Versión de PHP" "Selecciona la versión de PHP para este sitio:" "${PHP_OPTIONS[@]}")
-        [ -z "$PHP_VH_VER" ] && PHP_VH_VER=$(echo $INSTALLED_PHP | awk '{print $1}')
-    fi
-
-    # 4. SSL Preference
-    yes_no "SSL Certificado" "¿Deseas intentar instalar un certificado SSL con Certbot ahora?"
-    WANT_SSL=$?
-
-    # --- EXECUTION PHASE ---
-    echo -e "${CYAN}Creating directory $VPATH...${NC}"
-    mkdir -p "$VPATH"
     
-    if [ "$NEW_USER_CHOICE" == "YES" ]; then
-        echo -e "${CYAN}Creando usuario $OWNER...${NC}"
-        useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$OWNER"
-        echo "$OWNER:$NEW_PASS" | chpasswd
+            if [ "$OWNER" == "MANUAL" ]; then
+                OWNER=$(input_box "Usuario Manual" "Introduce el nombre del usuario exactamente:")
+                [ -z "$OWNER" ] && return
+            fi
+        fi
+
+        # 3. PHP Version Selection
+        INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+        if [ -z "$INSTALLED_PHP" ]; then
+            PHP_VH_VER="default"
+        else
+            PHP_OPTIONS=()
+            for v in $INSTALLED_PHP; do
+                PHP_OPTIONS+=("$v" "PHP-FPM version $v")
+            done
+            PHP_VH_VER=$(menu "Versión de PHP" "Selecciona la versión de PHP para este sitio:" "${PHP_OPTIONS[@]}")
+            [ -z "$PHP_VH_VER" ] && PHP_VH_VER=$(echo $INSTALLED_PHP | awk '{print $1}')
+        fi
+
+        # 4. SSL Preference
+        yes_no "SSL Certificado" "¿Deseas intentar instalar un certificado SSL con Certbot ahora?"
+        WANT_SSL=$?
+
+        # --- EXECUTION PHASE (LOCAL) ---
+        echo -e "${CYAN}Creating directory $VPATH...${NC}"
+        mkdir -p "$VPATH"
         
-        # Build multiline message for whiptail and console
-        CREDS_MSG="
+        if [ "$NEW_USER_CHOICE" == "YES" ]; then
+            echo -e "${CYAN}Creando usuario $OWNER...${NC}"
+            useradd -m -d "$VPATH" -s /usr/sbin/nologin -G www-data "$OWNER"
+            echo "$OWNER:$NEW_PASS" | chpasswd
+            
+            CREDS_MSG="
 --- CREDENCIALES PARA SFTP ---
 Usuario: $OWNER
 Password: $NEW_PASS
 -----------------------------"
-        echo -e "${GREEN}$CREDS_MSG${NC}"
-    else
-        CREDS_MSG=""
-    fi
+            echo -e "${GREEN}$CREDS_MSG${NC}"
+        else
+            CREDS_MSG=""
+        fi
 
-    apply_permissions "$OWNER" "$VPATH"
-    
-    if [ ! -f "$VPATH/index.html" ]; then
-        echo "<h1>Welcome to $DOMAIN</h1>" > "$VPATH/index.html"
-    fi
-    
-    PHP_FPM_CONF=""
-    if [ "$PHP_VH_VER" != "default" ]; then
-        PHP_FPM_CONF="
+        apply_permissions "$OWNER" "$VPATH"
+        
+        if [ ! -f "$VPATH/index.html" ] && [ ! -f "$VPATH/index.php" ]; then
+            echo "<h1>Welcome to $DOMAIN</h1>" > "$VPATH/index.html"
+            chown "$OWNER:www-data" "$VPATH/index.html"
+        fi
+        
+        PHP_FPM_CONF=""
+        if [ "$PHP_VH_VER" != "default" ]; then
+            PHP_FPM_CONF="
     <FilesMatch \.php$>
         SetHandler \"proxy:unix:/run/php/php$PHP_VH_VER-fpm.sock|fcgi://localhost\"
     </FilesMatch>"
-    fi
+        fi
 
-    echo -e "${CYAN}Creando configuración de VirtualHost...${NC}"
-    cat <<EOF > "/etc/apache2/sites-available/$DOMAIN.conf"
+        echo -e "${CYAN}Creando configuración de VirtualHost (Local)...${NC}"
+        cat <<EOF > "/etc/apache2/sites-available/$DOMAIN.conf"
 <VirtualHost *:80>
     ServerName $DOMAIN
     ServerAlias www.$DOMAIN
@@ -580,9 +594,37 @@ Password: $NEW_PASS
     CustomLog \${APACHE_LOG_DIR}/$DOMAIN-access.log combined
 </VirtualHost>
 EOF
+
+    else # --- PROXY TYPE ---
+        TARGET_URL=$(input_box "URL de Destino" "Introduce la URL o IP a la que quieres apuntar (ej: http://1.2.3.4 o http://localhost:8080):")
+        [ -z "$TARGET_URL" ] && return
+        
+        # 4. SSL Preference
+        yes_no "SSL Certificado" "¿Deseas intentar instalar un certificado SSL con Certbot ahora?"
+        WANT_SSL=$?
+
+        # Ensure modules are enabled
+        a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests &> /dev/null
+
+        echo -e "${CYAN}Creando configuración de VirtualHost (Proxy)...${NC}"
+        cat <<EOF > "/etc/apache2/sites-available/$DOMAIN.conf"
+<VirtualHost *:80>
+    ServerName $DOMAIN
+    ServerAlias www.$DOMAIN
+
+    ProxyPreserveHost On
+    ProxyPass / $TARGET_URL/
+    ProxyPassReverse / $TARGET_URL/
+
+    ErrorLog \${APACHE_LOG_DIR}/$DOMAIN-proxy-error.log
+    CustomLog \${APACHE_LOG_DIR}/$DOMAIN-proxy-access.log combined
+</VirtualHost>
+EOF
+        CREDS_MSG=""
+    fi
     
     a2ensite "$DOMAIN.conf"
-    systemctl restart apache2
+    systemctl reload apache2
     
     # 5. SSL Execution
     if [ $WANT_SSL -eq 0 ]; then
@@ -602,7 +644,7 @@ EOF
         echo -e "${GREEN}$CREDS_MSG${NC}"
     fi
 
-    msg_box "Éxito" "Configuración completada para $DOMAIN.\nCarpeta: $VPATH\nPHP: $PHP_VH_VER"
+    msg_box "Éxito" "Configuración completada para $DOMAIN ($VTYPE)."
 }
 
 function change_root() {

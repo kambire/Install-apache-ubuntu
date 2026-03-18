@@ -351,25 +351,43 @@ function manage_extensions() {
         "zlib" "Zlib compression" ON)
     
     if [ -n "$EXTS" ]; then
-        # Detect PHP version
-        PHP_VERS=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
+        # Detect installed PHP versions
+        INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+        if [ -z "$INSTALLED_PHP" ]; then
+            PHP_VERS_LIST=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
+        else
+            PHP_OPTIONS=("TODAS" "Todas las versiones instaladas")
+            for v in $INSTALLED_PHP; do
+                PHP_OPTIONS+=("$v" "PHP version $v")
+            done
+            PHP_VERS_CHOICE=$(menu "Seleccionar PHP" "Elige en qué versión de PHP quieres instalar las extensiones:" "${PHP_OPTIONS[@]}")
+            [ -z "$PHP_VERS_CHOICE" ] && return
+            
+            if [ "$PHP_VERS_CHOICE" == "TODAS" ]; then
+                PHP_VERS_LIST=$INSTALLED_PHP
+            else
+                PHP_VERS_LIST=$PHP_VERS_CHOICE
+            fi
+        fi
         
-        echo -e "${CYAN}Installing selected PHP extensions for PHP $PHP_VERS...${NC}"
         # Remove quotes from whiptail output
         EXTS=$(echo $EXTS | sed 's/"//g')
-        # Prepend php- to each extension name for apt
-        APT_EXTS=""
-        for ext in $EXTS; do
-            # Use phpX.X- style for better compatibility if possible, or generic if not
-            APT_EXTS="$APT_EXTS php$PHP_VERS-$ext"
+        
+        for pver in $PHP_VERS_LIST; do
+            echo -e "${CYAN}Installing selected PHP extensions for PHP $pver...${NC}"
+            # Prepend php- to each extension name for apt
+            APT_EXTS=""
+            for ext in $EXTS; do
+                APT_EXTS="$APT_EXTS php$pver-$ext"
+            done
+            
+            # Test if phpX.X-ext exists, if not fallback to php-ext
+            apt-get install -y $APT_EXTS 2>/dev/null || apt-get install -y $(echo $EXTS | sed "s/ / php-/g" | sed "s/^/php-/") 2>/dev/null
+            systemctl restart "php$pver-fpm" 2>/dev/null
         done
         
-        # Test if phpX.X-ext exists, if not fallback to php-ext
-        # We suppress errors for core extensions that don't have separate packages
-        apt-get install -y $APT_EXTS 2>/dev/null || apt-get install -y $(echo $EXTS | sed "s/ / php-/g" | sed "s/^/php-/") 2>/dev/null
-        
         systemctl restart apache2
-        msg_box "Success" "The selected PHP extensions have been installed."
+        msg_box "Exito" "Extensiones instaladas correctamente."
     fi
 }
 
@@ -671,19 +689,36 @@ function list_vhosts() {
 
 function install_custom_extension() {
     msg_box "Extensión Personalizada" "Si la extensión que buscas no está en la lista, puedes escribir su nombre aquí. El script intentará buscarla e instalarla usando los repositorios de tu sistema."
-    EXT_NAME=$(input_box "Custom PHP Extension" "Enter the name of the PHP extension to install (without php- prefix):" "")
+    EXT_NAME=$(input_box "Custom PHP Extension" "Enter the name of the PHP extension to install (e.g., redis, imagick):")
     [ -z "$EXT_NAME" ] && return
     
-    PHP_VERS=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
-    
-    echo -e "${CYAN}Attempting to install php$PHP_VERS-$EXT_NAME...${NC}"
-    apt-get update
-    if apt-get install -y "php$PHP_VERS-$EXT_NAME" || apt-get install -y "php-$EXT_NAME"; then
-        systemctl restart apache2
-        msg_box "Success" "Extension $EXT_NAME has been installed."
+    # Detect installed PHP versions
+    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+    if [ -z "$INSTALLED_PHP" ]; then
+        PHP_VERS_LIST=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
     else
-        msg_box "Error" "Could not find package for $EXT_NAME. Try checking the name on PECL or apt."
+        PHP_OPTIONS=("TODAS" "Todas las versiones instaladas")
+        for v in $INSTALLED_PHP; do
+            PHP_OPTIONS+=("$v" "PHP version $v")
+        done
+        PHP_VERS_CHOICE=$(menu "Seleccionar PHP" "Elige en qué versión quieres instalar '$EXT_NAME':" "${PHP_OPTIONS[@]}")
+        [ -z "$PHP_VERS_CHOICE" ] && return
+        
+        if [ "$PHP_VERS_CHOICE" == "TODAS" ]; then
+            PHP_VERS_LIST=$INSTALLED_PHP
+        else
+            PHP_VERS_LIST=$PHP_VERS_CHOICE
+        fi
     fi
+
+    for pver in $PHP_VERS_LIST; do
+        echo -e "${CYAN}Installing php$pver-$EXT_NAME...${NC}"
+        apt-get install -y "php$pver-$EXT_NAME"
+        systemctl restart "php$pver-fpm" 2>/dev/null
+    done
+    
+    systemctl restart apache2
+    msg_box "Success" "The extension '$EXT_NAME' has been installed."
 }
 
 function fix_permissions() {

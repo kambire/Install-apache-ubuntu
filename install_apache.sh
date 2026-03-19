@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.5.5 (SSL Diagnostic Tool)
+# Version: 1.5.6 (PHP Extension Detection)
 # ==============================================================================
 
 # Colors for terminal output
@@ -205,183 +205,106 @@ function manage_modules() {
 }
 
 function manage_extensions() {
-    msg_box "Extensiones PHP" "Aquí puedes seleccionar de una lista predefinida las extensiones de PHP que necesites. El script detectará tu versión de PHP e instalará los paquetes correspondientes."
-    EXTS=$(checklist "PHP Extensions" "Select the extensions (Space to toggle, Up/Down to scroll):" \
-        "40-vld" "vld extension" OFF \
-        "amqp" "AMQP protocol" OFF \
-        "apcu" "APCu cache" OFF \
-        "bcmath" "High precision math" OFF \
-        "bitset" "Bitset management" OFF \
-        "brotli" "Brotli compression" OFF \
-        "bz2" "Bzip2 compression" OFF \
-        "calendar" "Calendar conversion" OFF \
-        "core" "Core PHP" ON \
-        "ctype" "Ctype functions" ON \
-        "curl" "CURL HTTP client" ON \
-        "date" "Date & Time" ON \
-        "dba" "Database abstraction" OFF \
-        "dbase" "dBase files" OFF \
-        "diseval" "Diseval (Disabled Eval)" OFF \
-        "dom" "DOM support" ON \
-        "eio" "EIO extension" OFF \
-        "elastic_apm" "Elastic APM" OFF \
-        "enchant" "Spell checking" OFF \
-        "exif" "Image metadata" OFF \
-        "ffi" "Foreign Function Interface" OFF \
-        "fileinfo" "Fileinfo support" ON \
-        "filter" "Filter input" ON \
-        "ftp" "FTP functions" ON \
-        "gd" "GD Image library" ON \
-        "gearman" "Gearman support" OFF \
-        "gender" "Gender database" OFF \
-        "geoip" "GeoIP database" OFF \
-        "geos" "GEOS support" OFF \
-        "gettext" "Translation support" OFF \
-        "gmagick" "GraphicsMagick" OFF \
-        "gmp" "GNU Multiple Precision" OFF \
-        "gnupg" "GnuPG support" OFF \
-        "grpc" "gRPC support" OFF \
-        "hash" "Hash functions" ON \
-        "htscanner" "htscanner extension" OFF \
-        "http" "HTTP extension" OFF \
-        "iconv" "Iconv conversion" ON \
-        "igbinary" "Binary serialization" OFF \
-        "imagick" "ImageMagick library" OFF \
-        "imap" "IMAP/POP3 support" OFF \
-        "inotify" "Inotify support" OFF \
-        "intl" "Internationalization" OFF \
-        "ioncube_loader" "IonCube loader" OFF \
-        "jsmin" "Javascript Minifier" OFF \
-        "json" "JSON support" ON \
-        "ldap" "LDAP support" OFF \
-        "leveldb" "LevelDB support" OFF \
-        "libxml" "LibXML support" ON \
-        "luasandbox" "Lua sandbox" OFF \
-        "lzf" "LZF compression" OFF \
-        "mailparse" "Email parsing" OFF \
-        "mbstring" "Multibyte string support" ON \
-        "mcrypt" "Encryption library" OFF \
-        "memcache" "Memcached support" OFF \
-        "memcached" "Memcached (Libmemcached)" OFF \
-        "mongodb" "MongoDB driver" OFF \
-        "msgpack" "MessagePack" OFF \
-        "mysqli" "MySQLi driver" ON \
-        "mysqlnd" "MySQL Native Driver" ON \
-        "nd_mysqli" "MySQLnd MySQLi" OFF \
-        "nd_pdo_mysql" "MySQLnd PDO MySQL" OFF \
-        "newrelic" "New Relic agent" OFF \
-        "oauth" "OAuth support" OFF \
-        "oci8" "Oracle OCI8" OFF \
-        "odbc" "ODBC support" OFF \
-        "opcache" "OPcache" ON \
-        "openssl" "OpenSSL support" ON \
-        "pcntl" "Process Control" OFF \
-        "pcre" "Perl Regex" ON \
-        "pdf" "PDF library" OFF \
-        "pdo" "PDO core" ON \
-        "pdo_dblib" "PDO Sybase/MS-SQL" OFF \
-        "pdo_firebird" "PDO Firebird" OFF \
-        "pdo_mysql" "PDO MySQL" ON \
-        "pdo_oci" "PDO Oracle OCI" OFF \
-        "pdo_odbc" "PDO ODBC" OFF \
-        "pdo_pgsql" "PDO PostgreSQL" OFF \
-        "pdo_snowflake" "PDO Snowflake" OFF \
-        "pdo_sqlite" "PDO SQLite" ON \
-        "pdo_sqlsrv" "PDO MS SQL Server" OFF \
-        "pgsql" "PostgreSQL support" OFF \
-        "phalcon5" "Phalcon 5 framework" OFF \
-        "phar" "PHAR support" ON \
-        "phpiredis" "Hiredis driver" OFF \
-        "posix" "POSIX functions" ON \
-        "protobuf" "Protobuf support" OFF \
-        "pspell" "Pspell library" OFF \
-        "psr" "PSR interfaces" OFF \
-        "raphf" "RAPHF extension" OFF \
-        "rar" "RAR archive" OFF \
-        "readline" "Readline support" ON \
-        "redis" "Redis cache support" OFF \
-        "reflection" "Reflection classes" ON \
-        "rrd" "RRDtool support" OFF \
-        "scoutapm" "Scout APM" OFF \
-        "session" "Session support" ON \
-        "shmop" "Shared memory" ON \
-        "simplexml" "SimpleXML support" ON \
-        "snmp" "SNMP support" OFF \
-        "snuffleupagus" "Snuffleupagus security" OFF \
-        "soap" "SOAP protocol" OFF \
-        "sockets" "Socket support" OFF \
-        "sodium" "Sodium encryption" ON \
-        "solr" "Apache Solr" OFF \
-        "sourceguardian" "SourceGuardian" OFF \
-        "spl" "SPL support" ON \
-        "sqlite3" "SQLite database" ON \
-        "sqlsrv" "MS SQL Server" OFF \
-        "ssh2" "SSH2 support" OFF \
-        "standard" "Standard PHP" ON \
-        "stats" "Statistics" OFF \
-        "swoole" "Swoole engine" OFF \
-        "sysvmsg" "System V messages" OFF \
-        "sysvsem" "System V semaphores" OFF \
-        "sysvshm" "System V shared memory" OFF \
-        "tideways_xhprof" "Tideways XHProf" OFF \
-        "tidy" "Tidy support" OFF \
-        "timezonedb" "Timezone database" OFF \
-        "tokenizer" "Tokenizer support" ON \
-        "trader" "Stock trader" OFF \
-        "uploadprogress" "Upload tracking" OFF \
-        "uuid" "UUID support" OFF \
-        "vips" "VIPS library" OFF \
-        "xdebug" "Debugger/Profiler" OFF \
-        "xdiff" "Diff/Patch" OFF \
-        "xml" "XML support" ON \
-        "xmlreader" "XML Reader" ON \
-        "xmlrpc" "XMLRPC protocol" OFF \
-        "xmlwriter" "XML Writer" ON \
-        "xsl" "XSLT support" OFF \
-        "yaf" "YAF framework" OFF \
-        "yaml" "YAML support" OFF \
-        "yaz" "YAZ support" OFF \
-        "zip" "Zip file handling" ON \
-        "zlib" "Zlib compression" ON)
-    
-    if [ -n "$EXTS" ]; then
-        # Detect installed PHP versions
-        INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
-        if [ -z "$INSTALLED_PHP" ]; then
-            PHP_VERS_LIST=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
+    msg_box "Extensiones PHP" "Aquí puedes seleccionar las extensiones que desees. El script detectará las que ya tienes instaladas y las marcará automáticamente."
+
+    # 1. Detect installed PHP versions
+    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+    if [ -z "$INSTALLED_PHP" ]; then
+        PHP_VERS_LIST=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2)
+        DETECTION_VER=$PHP_VERS_LIST
+    else
+        PHP_OPTIONS=("TODAS" "Todas las versiones instaladas")
+        for v in $INSTALLED_PHP; do
+            PHP_OPTIONS+=("$v" "PHP version $v")
+        done
+        PHP_VERS_CHOICE=$(menu "Seleccionar PHP" "Elige en qué versión quieres gestionar las extensiones:" "${PHP_OPTIONS[@]}")
+        [ -z "$PHP_VERS_CHOICE" ] && return
+        
+        if [ "$PHP_VERS_CHOICE" == "TODAS" ]; then
+            PHP_VERS_LIST=$INSTALLED_PHP
+            DETECTION_VER=$(echo $INSTALLED_PHP | awk '{print $1}') # Use first for detection
         else
-            PHP_OPTIONS=("TODAS" "Todas las versiones instaladas")
-            for v in $INSTALLED_PHP; do
-                PHP_OPTIONS+=("$v" "PHP version $v")
-            done
-            PHP_VERS_CHOICE=$(menu "Seleccionar PHP" "Elige en qué versión de PHP quieres instalar las extensiones:" "${PHP_OPTIONS[@]}")
-            [ -z "$PHP_VERS_CHOICE" ] && return
-            
-            if [ "$PHP_VERS_CHOICE" == "TODAS" ]; then
-                PHP_VERS_LIST=$INSTALLED_PHP
-            else
-                PHP_VERS_LIST=$PHP_VERS_CHOICE
-            fi
+            PHP_VERS_LIST=$PHP_VERS_CHOICE
+            DETECTION_VER=$PHP_VERS_CHOICE
         fi
-        
-        # Remove quotes from whiptail output
+    fi
+
+    # 2. Get list of currently installed modules for detection
+    INSTALLED_MODS=$(php$DETECTION_VER -m 2>/dev/null | tr '[:upper:]' '[:lower:]')
+
+    # 3. Define a helper to check status
+    function check_ext() {
+        if echo "$INSTALLED_MODS" | grep -qpx "$1"; then echo "ON"; else echo "OFF"; fi
+    }
+
+    # checklist
+    EXTS=$(checklist "PHP Extensions ($DETECTION_VER)" "Selecciona las extensiones (Espacio para marcar/desmarcar):" \
+        "amqp" "AMQP protocol" $(check_ext "amqp") \
+        "apcu" "APCu cache" $(check_ext "apcu") \
+        "bcmath" "High precision math" $(check_ext "bcmath") \
+        "bz2" "Bzip2 compression" $(check_ext "bz2") \
+        "calendar" "Calendar conversion" $(check_ext "calendar") \
+        "curl" "CURL HTTP client" $(check_ext "curl") \
+        "dba" "Database abstraction" $(check_ext "dba") \
+        "dom" "DOM support" $(check_ext "dom") \
+        "enchant" "Spell checking" $(check_ext "enchant") \
+        "exif" "Image metadata" $(check_ext "exif") \
+        "ffi" "Foreign Function Interface" $(check_ext "ffi") \
+        "fileinfo" "Fileinfo support" $(check_ext "fileinfo") \
+        "filter" "Filter input" $(check_ext "filter") \
+        "ftp" "FTP functions" $(check_ext "ftp") \
+        "gd" "GD Image library" $(check_ext "gd") \
+        "gettext" "Translation support" $(check_ext "gettext") \
+        "gmp" "GNU Multiple Precision" $(check_ext "gmp") \
+        "gnupg" "GnuPG support" $(check_ext "gnupg") \
+        "grpc" "gRPC support" $(check_ext "grpc") \
+        "igbinary" "Binary serialization" $(check_ext "igbinary") \
+        "imagick" "ImageMagick library" $(check_ext "imagick") \
+        "imap" "IMAP/POP3 support" $(check_ext "imap") \
+        "intl" "Internationalization" $(check_ext "intl") \
+        "ldap" "LDAP support" $(check_ext "ldap") \
+        "mbstring" "Multibyte string" $(check_ext "mbstring") \
+        "mcrypt" "Mcrypt encryption" $(check_ext "mcrypt") \
+        "memcached" "Memcached support" $(check_ext "memcached") \
+        "mongodb" "MongoDB driver" $(check_ext "mongodb") \
+        "mysqli" "MySQLi support" $(check_ext "mysqli") \
+        "mysqlnd" "MySQL Native Driver" $(check_ext "mysqlnd") \
+        "odbc" "ODBC support" $(check_ext "odbc") \
+        "opcache" "Opcode caching" $(check_ext "opcache") \
+        "pdo" "PDO core" $(check_ext "pdo") \
+        "pdo_mysql" "PDO MySQL" $(check_ext "pdo_mysql") \
+        "pdo_pgsql" "PDO Postgres" $(check_ext "pdo_pgsql") \
+        "pdo_sqlite" "PDO SQLite" $(check_ext "pdo_sqlite") \
+        "pgsql" "PostgreSQL support" $(check_ext "pgsql") \
+        "posix" "POSIX functions" $(check_ext "posix") \
+        "pspell" "Pspell support" $(check_ext "pspell") \
+        "readline" "Readline support" $(check_ext "readline") \
+        "redis" "Redis cache support" $(check_ext "redis") \
+        "soap" "SOAP protocol" $(check_ext "soap") \
+        "sockets" "Socket support" $(check_ext "sockets") \
+        "sodium" "Sodium encryption" $(check_ext "sodium") \
+        "sqlite3" "SQLite database" $(check_ext "sqlite3") \
+        "sqlsrv" "MS SQL Server" $(check_ext "sqlsrv") \
+        "ssh2" "SSH2 support" $(check_ext "ssh2") \
+        "tidy" "Tidy support" $(check_ext "tidy") \
+        "xml" "XML support" $(check_ext "xml") \
+        "xsl" "XSLT support" $(check_ext "xsl") \
+        "yaml" "YAML support" $(check_ext "yaml") \
+        "zip" "Zip file handling" $(check_ext "zip"))
+
+    if [ -n "$EXTS" ]; then
         EXTS=$(echo $EXTS | sed 's/"//g')
-        
         for pver in $PHP_VERS_LIST; do
-            echo -e "${CYAN}Installing selected PHP extensions for PHP $pver...${NC}"
-            # Prepend php- to each extension name for apt
+            echo -e "${CYAN}Gestionando extensiones para PHP $pver...${NC}"
             APT_EXTS=""
             for ext in $EXTS; do
                 APT_EXTS="$APT_EXTS php$pver-$ext"
             done
-            
-            # Test if phpX.X-ext exists, if not fallback to php-ext
             apt-get install -y $APT_EXTS 2>/dev/null || apt-get install -y $(echo $EXTS | sed "s/ / php-/g" | sed "s/^/php-/") 2>/dev/null
             systemctl restart "php$pver-fpm" 2>/dev/null
         done
-        
         systemctl restart apache2
-        msg_box "Exito" "Extensiones instaladas correctamente."
+        msg_box "Éxito" "Las extensiones seleccionadas han sido procesadas correctamente."
     fi
 }
 

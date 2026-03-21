@@ -60,11 +60,10 @@ check_ui_support || UI_WORKS=1
 
 function msg_box() {
     if [ $UI_WORKS -eq 0 ]; then
-        whiptail --title "$1" --msgbox "$2" 10 60 2>/dev/null
-        [ $? -gt 1 ] && UI_WORKS=1
-    fi
-    if [ $UI_WORKS -eq 1 ]; then
-        echo -e "${BLUE}--- $1 ---${NC}\n$2\n${BLUE}----------${NC}"
+        whiptail --title "$1" --msgbox "$2" 10 60
+    else
+        # Text mode fallback: send prompts to stderr to avoid capturing in command substitution
+        echo -e "${BLUE}--- $1 ---${NC}\n$2\n${BLUE}----------${NC}" >&2
         read -p "Presiona Enter para continuar..." < /dev/tty
     fi
 }
@@ -73,7 +72,7 @@ function input_box() {
     if [ $UI_WORKS -eq 0 ]; then
         local result
         local exit_code
-        result=$(whiptail --title "$1" --inputbox "$2" 10 60 "$3" 3>&1 1>&2 2>/dev/null)
+        result=$(whiptail --title "$1" --inputbox "$2" 10 60 "$3" 3>&1 1>&2 2>&3)
         exit_code=$?
         if [ $exit_code -eq 0 ]; then
             echo "$result"
@@ -84,9 +83,10 @@ function input_box() {
         fi
         UI_WORKS=1
     fi
-    # Text mode fallback
-    echo -e "${BLUE}--- $1 ---${NC}"
+    # Text mode fallback: send prompts to stderr
+    echo -e "${BLUE}--- $1 ---${NC}" >&2
     read -p "$2 [$3]: " result < /dev/tty
+    result="${result//$'\r'/}"
     echo "${result:-$3}"
 }
 
@@ -97,7 +97,7 @@ function menu() {
     if [ $UI_WORKS -eq 0 ]; then
         local result
         local exit_code
-        result=$(whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>/dev/null)
+        result=$(whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>&3)
         exit_code=$?
         if [ $exit_code -eq 0 ]; then
             echo "$result"
@@ -108,14 +108,15 @@ function menu() {
         fi
         UI_WORKS=1
     fi
-    # Text mode fallback
-    echo -e "${BLUE}--- $title ---${NC}"
-    echo "$text"
+    # Text mode fallback: send prompts to stderr
+    echo -e "${BLUE}--- $title ---${NC}" >&2
+    echo "$text" >&2
     local options=("$@")
     for ((i=0; i<${#options[@]}; i+=2)); do
-        echo "  ${options[i]}) ${options[i+1]}"
+        echo "  ${options[i]}) ${options[i+1]}" >&2
     done
     read -p "Selecciona una opción: " result < /dev/tty
+    result="${result//$'\r'/}"
     echo "$result"
 }
 
@@ -126,7 +127,7 @@ function checklist() {
     if [ $UI_WORKS -eq 0 ]; then
         local result
         local exit_code
-        result=$(whiptail --title "$title" --checklist "$text" 20 70 12 "$@" 3>&1 1>&2 2>/dev/null)
+        result=$(whiptail --title "$title" --checklist "$text" 20 70 12 "$@" 3>&1 1>&2 2>&3)
         exit_code=$?
         if [ $exit_code -eq 0 ]; then
             echo "$result"
@@ -137,31 +138,30 @@ function checklist() {
         fi
         UI_WORKS=1
     fi
-    # Text mode fallback
-    echo -e "${BLUE}--- $title ---${NC}"
-    echo "$text (Escribe los valores separados por espacio)"
+    # Text mode fallback: send prompts to stderr
+    echo -e "${BLUE}--- $title ---${NC}" >&2
+    echo "$text (Escribe los valores separados por espacio)" >&2
     local options=("$@")
     for ((i=0; i<${#options[@]}; i+=3)); do
-        echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]"
+        echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]" >&2
     done
     read -p "Opciones: " result < /dev/tty
+    result="${result//$'\r'/}"
     echo "$result"
 }
 
 function yes_no() {
     if [ $UI_WORKS -eq 0 ]; then
-        whiptail --title "$1" --yesno "$2" 10 60 2>/dev/null
-        local exit_code=$?
-        if [ $exit_code -le 1 ]; then
-            return $exit_code
-        fi
-        UI_WORKS=1
+        whiptail --title "$1" --yesno "$2" 10 60
+        return $?
+    else
+        # Text mode fallback: send prompts to stderr
+        echo -e "${BLUE}--- $1 ---${NC}" >&2
+        read -p "$2 (y/n): " result < /dev/tty
+        result="${result//$'\r'/}"
+        [[ $result =~ ^[Yy]$ ]] && return 0
+        return 1
     fi
-    # Text mode fallback
-    echo -e "${BLUE}--- $1 ---${NC}"
-    read -p "$2 (y/n): " result < /dev/tty
-    [[ $result =~ ^[Yy]$ ]] && return 0
-    return 1
 }
 
 # ==============================================================================

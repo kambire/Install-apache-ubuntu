@@ -1249,6 +1249,27 @@ function delete_domain() {
     msg_box "Éxito" "El Virtual Host $DOMAIN ha sido eliminado correctamente."
 }
 
+function install_cms_essentials() {
+    msg_box "Esenciales para CMS" "Esta opción instalará y activará los módulos necesarios para WebEngine, FusionCMS y otros: mod_rewrite, mod_security2, mod_headers, mod_expires, mod_deflate y mod_unique_id."
+    
+    echo -e "${CYAN}Instalando dependencias de ModSecurity...${NC}"
+    apt-get update && apt-get install -y libapache2-mod-security2
+    
+    echo -e "${CYAN}Activando módulos esenciales...${NC}"
+    # unique_id is required by security2
+    a2enmod rewrite ssl headers expires deflate unique_id security2
+    
+    # Configure ModSecurity (Enable by default if first time)
+    if [ -f "/etc/modsecurity/modsecurity.conf-recommended" ] && [ ! -f "/etc/modsecurity/modsecurity.conf" ]; then
+        echo -e "${CYAN}Configurando ModSecurity básico...${NC}"
+        cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
+        sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/modsecurity/modsecurity.conf
+    fi
+    
+    systemctl restart apache2
+    msg_box "Éxito" "Módulos esenciales instalados y activados correctamente.\n\nSe activó:\n- mod_security2 (WAF)\n- mod_rewrite (Friendly URLs)\n- mod_headers (Security)\n- mod_expires/deflate (Performance)\n- mod_unique_id"
+}
+
 # ==============================================================================
 # Main Execution Loop
 # ==============================================================================
@@ -1273,6 +1294,7 @@ function main_menu() {
             "15" "Restart Apache" \
             "16" "Update Script from GitHub" \
             "17" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
+            "18" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
             "0" "Exit")
 
         case $CHOICE in
@@ -1300,6 +1322,7 @@ function main_menu() {
                 fi
                 ;;
             17) diagnose_ssl ;;
+            18) install_cms_essentials ;;
             0|*) exit 0 ;;
         esac
     done

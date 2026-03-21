@@ -345,7 +345,7 @@ function add_ssl_to_existing() {
     msg_box "SSL para Dominio Existente" "Esta opción permite agregar un certificado SSL de Let's Encrypt a un dominio que ya haya sido configurado o ingresar uno manualmente."
     
     # List available configs, excluding defaults and ssl
-    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
     
     OPTIONS=("Manual" "Ingresar dominio manualmente")
     for site in $SITES; do
@@ -630,7 +630,7 @@ function list_vhosts() {
     # Get enabled sites
     ENABLED_SITES=$(ls /etc/apache2/sites-enabled/ | grep ".conf$" | sed 's/.conf$//')
     # Get available but not enabled sites
-    AVAILABLE_SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    AVAILABLE_SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
     
     MENU_ITEMS=""
     for site in $ENABLED_SITES; do
@@ -1057,7 +1057,7 @@ function change_vhost_php() {
     msg_box "Cambiar Versión de PHP" "Esta herramienta te permite cambiar la versión de PHP (FPM) que utiliza un host virtual existente."
     
     # 1. List VHosts
-    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
     if [ -z "$SITES" ]; then
         msg_box "Error" "No se encontraron Virtual Hosts personalizados."
         return
@@ -1099,53 +1099,79 @@ function change_vhost_php() {
 }
 
 function diagnose_ssl() {
-    msg_box "Diagnóstico SSL" "Esta herramienta buscará problemas comunes que causan errores de SSL (como RX_RECORD_TOO_LONG)."
+    msg_box "Diagnóstico SSL (Repair RX_RECORD_TOO_LONG)" "Esta herramienta buscará problemas comunes que causan errores de SSL. El error RX_RECORD_TOO_LONG indica usualmente que el servidor responde con HTTP plano en el puerto 443 (HTTPS)."
     
     # 1. Module check
     echo -e "${CYAN}Verificando módulos de Apache...${NC}"
-    SSL_MOD=$(apache2ctl -M | grep ssl)
-    if [ -z "$SSL_MOD" ]; then
-        yes_no "Módulo SSL" "El módulo 'ssl' no está activo. ¿Deseas activarlo ahora?"
+    if ! apache2ctl -M | grep -qi "ssl"; then
+        yes_no "Módulo SSL" "El módulo 'ssl' no está activo. Es indispensable para HTTPS. ¿Deseas activarlo ahora?"
         if [ $? -eq 0 ]; then
+            echo -e "${CYAN}Activando mod_ssl...${NC}"
             a2enmod ssl
             systemctl restart apache2
-            msg_box "Módulo SSL" "Módulo 'ssl' activado y Apache reiniciado."
         fi
     fi
 
-    # 2. Port check
+    # 2. Port check (Listen 443)
     if ! grep -q "Listen 443" /etc/apache2/ports.conf; then
-        msg_box "Aviso" "No se detectó 'Listen 443' en ports.conf. Esto causará que SSL no funcione."
+        yes_no "Puerto 443" "No se detectó 'Listen 443' en /etc/apache2/ports.conf. Esto impide que Apache escuche peticiones HTTPS. ¿Añadirlo ahora?"
+        if [ $? -eq 0 ]; then
+             echo "Listen 443" >> /etc/apache2/ports.conf
+             echo -e "${GREEN}Añadido 'Listen 443' a ports.conf${NC}"
+             systemctl restart apache2
+        fi
     fi
 
     # 3. Domain check
-    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio para diagnosticar su SSL:" "${SITES[@]}")
-    
-    if [ -n "$DOMAIN" ]; then
-        SSL_FILE="/etc/apache2/sites-available/$DOMAIN-le-ssl.conf"
-        NORMAL_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
-        
-        if [ ! -f "$SSL_FILE" ]; then
-            msg_box "SSL No Encontrado" "No se encontró el archivo -le-ssl.conf para $DOMAIN. Esto indica que Certbot no ha configurado SSL aún para este dominio."
-            return
-        fi
-
-        # Check for SSLEngine on
-        if ! grep -qi "SSLEngine on" "$SSL_FILE"; then
-            msg_box "ERROR CRÍTICO" "El archivo SSL de $DOMAIN no tiene 'SSLEngine on'. Esto causará el error RX_RECORD_TOO_LONG.\nIntentando corregir..."
-            sed -i '/<VirtualHost \*:443>/a \    SSLEngine on' "$SSL_FILE"
-            systemctl reload apache2
-            msg_box "Reparación" "Se ha insertado 'SSLEngine on' en $SSL_FILE y recargado Apache."
-        fi
-
-        # Check for certificate files
-        if ! grep -qi "SSLCertificateFile" "$SSL_FILE"; then
-            msg_box "Error" "Faltan las rutas de los certificados en $SSL_FILE. Se recomienda volver a ejecutar Certbot (Opción 5)."
-        fi
-        
-        msg_box "Diagnóstico Completado" "Se han verificado los parámetros básicos para $DOMAIN."
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
+    if [ -z "$SITES" ]; then
+        msg_box "Error" "No se encontraron Virtual Hosts para diagnosticar."
+        return
     fi
+    
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio que tiene el problema para analizar su configuración:" $SITES)
+    [ -z "$DOMAIN" ] && return
+    
+    # Search for SSL config file
+    SSL_FILE=""
+    if [ -f "/etc/apache2/sites-available/$DOMAIN-le-ssl.conf" ]; then
+        SSL_FILE="/etc/apache2/sites-available/$DOMAIN-le-ssl.conf"
+    elif [ -f "/etc/apache2/sites-available/$DOMAIN.ssl.conf" ]; then
+        SSL_FILE="/etc/apache2/sites-available/$DOMAIN.ssl.conf"
+    elif [ -f "/etc/apache2/sites-available/$DOMAIN.conf" ]; then
+        if grep -q "<VirtualHost .*:443>" "/etc/apache2/sites-available/$DOMAIN.conf"; then
+            SSL_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
+        fi
+    fi
+
+    if [ -z "$SSL_FILE" ]; then
+        msg_box "SSL No Detectado" "No se encontró una configuración SSL (puerto 443) para $DOMAIN.\nSe recomienda usar la opción 7 para configurar SSL con Certbot primero."
+        return
+    fi
+
+    # 4. Check for SSLEngine on
+    if grep -q "<VirtualHost .*:443>" "$SSL_FILE"; then
+        if ! grep -qi "SSLEngine on" "$SSL_FILE"; then
+            msg_box "ERROR DETECTADO" "El bloque de puerto 443 en $SSL_FILE existe pero NO tiene 'SSLEngine on'. Esto GARANTIZA el error RX_RECORD_TOO_LONG.\n\nIntentando reparación automática..."
+            # Insert after the VirtualHost opening line (supporting various formats)
+            sed -i '/<VirtualHost .*:443>/a \    SSLEngine on' "$SSL_FILE"
+            systemctl reload apache2
+            msg_box "Reparación Completada" "Se ha insertado 'SSLEngine on' en $SSL_FILE y recargado Apache."
+        else
+            msg_box "Verificación" "Se detectó 'SSLEngine on' en la configuración de $DOMAIN. Si el error persiste, podría ser un conflicto con el puerto 80 o el certificado no es válido."
+        fi
+    else
+        msg_box "Aviso" "El archivo de configuración detectado no parece tener un bloque <VirtualHost *:443>."
+    fi
+
+    # 5. Check for 000-default.conf interference
+    if [ -f "/etc/apache2/sites-enabled/000-default.conf" ]; then
+        if grep -q "<VirtualHost .*:443>" "/etc/apache2/sites-enabled/000-default.conf"; then
+             msg_box "Conflicto de Default" "Se detectó un bloque 443 en 000-default.conf que podría estar interfiriendo."
+        fi
+    fi
+    
+    msg_box "Fin del Diagnóstico" "Verificación terminada. Realiza una prueba en tu navegador."
 }
 
 function delete_domain() {
@@ -1155,7 +1181,7 @@ function delete_domain() {
         msg_box "Eliminar Virtual Host" "CUIDADO: Esta opción eliminará la configuración del dominio y, si lo deseas, también todos sus archivos."
         
         # List available configs, excluding current defaults
-        SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vpx "000-default" | grep -vpx "default-ssl")
+        SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
         
         if [ -z "$SITES" ]; then
             msg_box "Info" "No se encontraron Virtual Hosts personalizados para eliminar."

@@ -371,22 +371,25 @@ function add_ssl_to_existing() {
         install_certbot
     fi
     
-    # Check DNS resolution
-    echo -e "${CYAN}Verificando DNS para $DOMAIN...${NC}"
+    echo -e "${CYAN}Verificando resolución DNS para $DOMAIN...${NC}"
     if ! host "$DOMAIN" &> /dev/null; then
-        msg_box "Advertencia DNS" "El dominio $DOMAIN no parece resolver a ninguna IP. Certbot podría fallar.\nVerifica tus registros A en el panel de tu dominio."
+        msg_box "ADVERTENCIA CRÍTICA DNS" "¡ATENCIÓN!\nEl dominio '$DOMAIN' NO parece apuntar a ninguna IP.\n\nSi continúas, Certbot FALLARÁ y verás el error 'RX_RECORD_TOO_LONG' porque Apache no activará el modo seguro."
     fi
 
-    echo -e "${CYAN}Running Certbot for $DOMAIN...${NC}"
     if [ $INCLUDE_WWW -eq 0 ]; then
+        echo -e "${CYAN}Verificando resolución DNS para www.$DOMAIN...${NC}"
         if ! host "www.$DOMAIN" &> /dev/null; then
-             yes_no "Advertencia WWW" "El dominio 'www.$DOMAIN' no resuelve por DNS. ¿Deseas intentar continuar de todas formas? (Se recomienda No si no tienes el registro CNAME/A creado)"
-             if [ $? -ne 0 ]; then
-                 INCLUDE_WWW=1 # Force no WWW
+             yes_no "DNS Fallido (www)" "El subdominio 'www.$DOMAIN' NO resuelve por DNS.\n\n¿Deseas SALTAR el alias 'www' para que el certificado principal se genere correctamente?\n(Recomendado: SI)"
+             if [ $? -eq 0 ]; then
+                  INCLUDE_WWW=1 # Force skip WWW
+                  echo -e "${YELLOW}Saltando alias 'www' por falta de DNS.${NC}"
+             else
+                  msg_box "Aviso" "Intentaremos incluir 'www', pero si falla no tendrás HTTPS en ningún dominio."
              fi
         fi
     fi
 
+    echo -e "${CYAN}Ejecutando Certbot para $DOMAIN...${NC}"
     if [ $INCLUDE_WWW -eq 0 ]; then
         certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
     else
@@ -396,7 +399,7 @@ function add_ssl_to_existing() {
     if [ $? -eq 0 ]; then
         msg_box "SSL Exitoso" "Certificado SSL configurado correctamente para $DOMAIN."
     else
-        msg_box "Error" "Hubo un problema al generar el certificado.\n1. Verifica que el dominio apunte a la IP de este servidor.\n2. Asegúrate de que el puerto 80 esté abierto."
+        msg_box "ERROR CERTBOT" "Hubo un problema al generar el certificado.\n\n1. Verifica que el dominio apunte a la IP del servidor.\n2. Asegúrate de que el puerto 80 esté abierto.\n3. Si intentaste incluir 'www' y falló, reintenta SIN 'www'."
     fi
 }
 function apply_permissions() {
@@ -427,6 +430,15 @@ function add_domain() {
     DOMAIN=$(input_box "Dominio" "Introduce el dominio (ej: ejemplo.com):" "ejemplo.com")
     [ -z "$DOMAIN" ] && return
     
+    # 2. Alias WWW selection
+    yes_no "Alias WWW" "¿Deseas incluir el alias 'www.$DOMAIN'? (Se recomienda No si no tienes el registro DNS creado)"
+    WANT_WWW=$? # 0 = Yes, 1 = No
+    
+    SERVER_ALIAS=""
+    if [ $WANT_WWW -eq 0 ]; then
+        SERVER_ALIAS="ServerAlias www.$DOMAIN"
+    fi
+
     # Check if domain already exists
     if [ -f "/etc/apache2/sites-available/$DOMAIN.conf" ]; then
         msg_box "Error" "El dominio $DOMAIN ya existe."
@@ -528,7 +540,7 @@ Password: $NEW_PASS
         cat <<EOF > "/etc/apache2/sites-available/$DOMAIN.conf"
 <VirtualHost *:80>
     ServerName $DOMAIN
-    ServerAlias www.$DOMAIN
+    $SERVER_ALIAS
     DocumentRoot $VPATH
     
     <Directory $VPATH>
@@ -558,7 +570,7 @@ EOF
         cat <<EOF > "/etc/apache2/sites-available/$DOMAIN.conf"
 <VirtualHost *:80>
     ServerName $DOMAIN
-    ServerAlias www.$DOMAIN
+    $SERVER_ALIAS
 
     ProxyPreserveHost On
     ProxyPass / $TARGET_URL/
@@ -580,9 +592,12 @@ EOF
             install_certbot
         fi
         echo -e "${CYAN}Iniciando Certbot para $DOMAIN...${NC}"
-        if host "www.$DOMAIN" &> /dev/null; then
+        
+        # SSL with optional WWW and DNS check
+        if [ $WANT_WWW -eq 0 ] && host "www.$DOMAIN" &> /dev/null; then
              certbot --apache -d "$DOMAIN" -d "www.$DOMAIN"
         else
+             [ $WANT_WWW -eq 0 ] && echo -e "${YELLOW}Advertencia: Saltando 'www' porque no resuelve por DNS.${NC}"
              certbot --apache -d "$DOMAIN"
         fi
     fi

@@ -1274,6 +1274,63 @@ function diagnose_ssl() {
     msg_box "Fin del Diagnóstico" "Verificación terminada. Si el error persiste:\n1. Revisa los logs: tail -n 20 /var/log/apache2/error.log\n2. Asegúrate de que no haya firewalls bloqueando el puerto 443."
 }
 
+function install_webengine() {
+    msg_box "Instalador WebEngine CMS" "Esta opción descargará e instalará WebEngine CMS en el dominio que selecciones.\nRequisitos: PHP 8.1+ (8.4 recomendado), mod_rewrite y SQL Server support (sqlsrv)."
+    
+    # 1. Select Domain
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
+    if [ -z "$SITES" ]; then
+        msg_box "Error" "No se encontraron Virtual Hosts. Crea uno primero (Opción 6)."
+        return
+    fi
+    
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar WebEngine CMS:" $SITES)
+    [ -z "$DOMAIN" ] && return
+    
+    # 2. Get DocumentRoot
+    VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
+    if [ -z "$VPATH" ] || [ ! -d "$VPATH" ]; then
+        msg_box "Error" "No se pudo determinar la ruta del dominio o la carpeta no existe."
+        return
+    fi
+    
+    yes_no "Confirmar Instalación" "¿Deseas instalar WebEngine CMS en $VPATH?\nADVERTENCIA: Si la carpeta no está vacía, podrían haber archivos en conflicto."
+    [ $? -ne 0 ] && return
+    
+    # 3. Prerequisites
+    echo -e "${CYAN}Asegurando requisitos previos (PHP 8.4, SqlSrv, CMS Essentials)...${NC}"
+    # Ensure PHP 8.4 and necessary modules
+    apt-get update && apt-get install -y php8.4 php8.4-fpm php8.4-curl php8.4-gd php8.4-mbstring php8.4-xml php8.4-zip
+    
+    # Call existing helper for CMS modules and SQLSRV
+    install_cms_essentials &>/dev/null
+    install_sqlsrv &>/dev/null
+    
+    if ! command -v git &> /dev/null; then
+        echo -e "${CYAN}Instalando Git...${NC}"
+        apt-get update && apt-get install -y git
+    fi
+    
+    # 4. Cloning
+    echo -e "${CYAN}Clonando WebEngine CMS en $VPATH...${NC}"
+    TEMP_CLONE="/tmp/webengine_clone_$(date +%s)"
+    git clone https://github.com/lautaroangelico/WebEngine.git "$TEMP_CLONE"
+    
+    if [ $? -eq 0 ]; then
+        # Copy to domain folder
+        cp -r "$TEMP_CLONE"/. "$VPATH"/
+        rm -rf "$TEMP_CLONE"
+        
+        # 5. Permissions
+        OWNER=$(ls -ld "$VPATH" | awk '{print $3}')
+        apply_permissions "$OWNER" "$VPATH"
+        
+        msg_box "Éxito" "WebEngine CMS ha sido descargado en $VPATH.\n\nPRÓXIMOS PASOS:\n1. Visita http://$DOMAIN/install en tu navegador.\n2. Configura el Cron Job: /includes/cron/cron.php (Cada minuto)."
+    else
+        msg_box "Error" "Hubo un problema al clonar el repositorio de GitHub."
+    fi
+}
+
 function delete_domain() {
     local DOMAIN=$1
     
@@ -1367,6 +1424,7 @@ function main_menu() {
             "16" "Update Script from GitHub" \
             "17" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
             "18" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
+            "19" "Instalar WebEngine CMS" \
             "0" "Exit")
 
         case $CHOICE in
@@ -1395,6 +1453,7 @@ function main_menu() {
                 ;;
             17) diagnose_ssl ;;
             18) install_cms_essentials ;;
+            19) install_webengine ;;
             0|*) exit 0 ;;
         esac
     done

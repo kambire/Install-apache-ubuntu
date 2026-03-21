@@ -42,33 +42,105 @@ if ! command -v whiptail &> /dev/null; then
 fi
 
 # ==============================================================================
-# UI Helper Functions
+# UI Helper Functions (Robust version)
 # ==============================================================================
 
+# Check if whiptail is working correctly
+function check_ui_support() {
+    if [ -z "$TERM" ] || [ "$TERM" == "dumb" ]; then
+         return 1
+    fi
+    # Try a non-interactive whiptail call to see if it works
+    whiptail --version &>/dev/null
+    return $?
+}
+
+UI_WORKS=0
+check_ui_support || UI_WORKS=1
+
 function msg_box() {
-    whiptail --title "$1" --msgbox "$2" 10 60
+    if [ $UI_WORKS -eq 0 ]; then
+        whiptail --title "$1" --msgbox "$2" 10 60 2>/dev/null
+    else
+        echo -e "${BLUE}--- $1 ---${NC}\n$2\n${BLUE}----------${NC}"
+        read -p "Presiona Enter para continuar..."
+    fi
 }
 
 function input_box() {
-    whiptail --title "$1" --inputbox "$2" 10 60 "$3" 3>&1 1>&2 2>&3
+    if [ $UI_WORKS -eq 0 ]; then
+        local result
+        result=$(whiptail --title "$1" --inputbox "$2" 10 60 "$3" 3>&1 1>&2 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            echo "$result"
+        else
+            echo ""
+        fi
+    else
+        echo -e "${BLUE}--- $1 ---${NC}"
+        read -p "$2 [$3]: " result
+        echo "${result:-$3}"
+    fi
 }
 
 function menu() {
     local title=$1
     local text=$2
     shift 2
-    whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>&3
+    if [ $UI_WORKS -eq 0 ]; then
+        local result
+        result=$(whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            echo "$result"
+        else
+            echo ""
+        fi
+    else
+        echo -e "${BLUE}--- $title ---${NC}"
+        echo "$text"
+        local options=("$@")
+        for ((i=0; i<${#options[@]}; i+=2)); do
+            echo "  ${options[i]}) ${options[i+1]}"
+        done
+        read -p "Selecciona una opción: " result
+        echo "$result"
+    fi
 }
 
 function checklist() {
     local title=$1
     local text=$2
     shift 2
-    whiptail --title "$title" --checklist "$text" 20 70 12 "$@" 3>&1 1>&2 2>&3
+    if [ $UI_WORKS -eq 0 ]; then
+        local result
+        result=$(whiptail --title "$title" --checklist "$text" 20 70 12 "$@" 3>&1 1>&2 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            echo "$result"
+        else
+            echo ""
+        fi
+    else
+        echo -e "${BLUE}--- $title ---${NC}"
+        echo "$text (Escribe los valores separados por espacio)"
+        local options=("$@")
+        for ((i=0; i<${#options[@]}; i+=3)); do
+            echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]"
+        done
+        read -p "Opciones: " result
+        echo "$result"
+    fi
 }
 
 function yes_no() {
-    whiptail --title "$1" --yesno "$2" 10 60
+    if [ $UI_WORKS -eq 0 ]; then
+        whiptail --title "$1" --yesno "$2" 10 60 2>/dev/null
+        return $?
+    else
+        echo -e "${BLUE}--- $1 ---${NC}"
+        read -p "$2 (y/n): " result
+        [[ $result =~ ^[Yy]$ ]] && return 0
+        return 1
+    fi
 }
 
 # ==============================================================================

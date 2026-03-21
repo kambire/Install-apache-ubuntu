@@ -992,8 +992,9 @@ function install_sqlsrv() {
     PHP_VERSIONS=$(echo $PHP_VERSIONS | sed 's/"//g')
 
     echo -e "${CYAN}Adding Microsoft Repository...${NC}"
-    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
-    curl -fsSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /etc/apt/keyrings/microsoft-prod.gpg
+    echo "deb [arch=amd64,armhf,arm64 signed-by=/etc/apt/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/mssql-release.list
     
     apt-get update
     echo -e "${CYAN}Installing MS ODBC Drivers...${NC}"

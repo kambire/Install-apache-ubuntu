@@ -51,8 +51,9 @@ fi
 
 # Download files
 URL_RAW="https://raw.githubusercontent.com/kambire/Install-apache-ubuntu/main"
-$DL_TOOL install_apache.sh "$URL_RAW/install_apache.sh" && \
-$DL_TOOL update.sh "$URL_RAW/update.sh"
+CACHE_BUSTER="?t=$(date +%s)"
+$DL_TOOL install_apache.sh "$URL_RAW/install_apache.sh$CACHE_BUSTER" && \
+$DL_TOOL update.sh "$URL_RAW/update.sh$CACHE_BUSTER"
 
 if [ $? -eq 0 ]; then
     chmod +x *.sh

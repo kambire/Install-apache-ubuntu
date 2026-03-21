@@ -61,9 +61,11 @@ check_ui_support || UI_WORKS=1
 function msg_box() {
     if [ $UI_WORKS -eq 0 ]; then
         whiptail --title "$1" --msgbox "$2" 10 60 2>/dev/null
-    else
+        [ $? -gt 1 ] && UI_WORKS=1
+    fi
+    if [ $UI_WORKS -eq 1 ]; then
         echo -e "${BLUE}--- $1 ---${NC}\n$2\n${BLUE}----------${NC}"
-        read -p "Presiona Enter para continuar..."
+        read -p "Presiona Enter para continuar..." < /dev/tty
     fi
 }
 
@@ -84,7 +86,7 @@ function input_box() {
     fi
     # Text mode fallback
     echo -e "${BLUE}--- $1 ---${NC}"
-    read -p "$2 [$3]: " result
+    read -p "$2 [$3]: " result < /dev/tty
     echo "${result:-$3}"
 }
 
@@ -113,7 +115,7 @@ function menu() {
     for ((i=0; i<${#options[@]}; i+=2)); do
         echo "  ${options[i]}) ${options[i+1]}"
     done
-    read -p "Selecciona una opción: " result
+    read -p "Selecciona una opción: " result < /dev/tty
     echo "$result"
 }
 
@@ -142,7 +144,7 @@ function checklist() {
     for ((i=0; i<${#options[@]}; i+=3)); do
         echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]"
     done
-    read -p "Opciones: " result
+    read -p "Opciones: " result < /dev/tty
     echo "$result"
 }
 
@@ -157,7 +159,7 @@ function yes_no() {
     fi
     # Text mode fallback
     echo -e "${BLUE}--- $1 ---${NC}"
-    read -p "$2 (y/n): " result
+    read -p "$2 (y/n): " result < /dev/tty
     [[ $result =~ ^[Yy]$ ]] && return 0
     return 1
 }
@@ -1446,7 +1448,7 @@ function main_menu() {
             "19" "Instalar WebEngine CMS" \
             "0" "Exit")
 
-        case $CHOICE in
+        case "$CHOICE" in
             1) install_apache_php ;;
             2) manage_extensions ;;
             3) install_custom_extension ;;
@@ -1474,7 +1476,14 @@ function main_menu() {
             18) install_cms_essentials ;;
             19) install_webengine ;;
             0) exit 0 ;;
-            *) continue ;;
+            "") # Empty choice happens on cancel or whiptail failure
+                # If whiptail is failing, we must force UI_WORKS=1 in the parent shell too
+                [ $UI_WORKS -eq 0 ] && UI_WORKS=1
+                ;;
+            *) 
+                echo -e "${RED}Opción inválida: $CHOICE${NC}"
+                sleep 1
+                ;;
         esac
     done
 }

@@ -1315,21 +1315,13 @@ function install_webengine() {
         return
     fi
     
-    yes_no "Confirmar Instalación" "¿Deseas instalar WebEngine CMS en $VPATH?\nADVERTENCIA: Si la carpeta no está vacía, podrían haber archivos en conflicto."
+    yes_no "Confirmar Instalación" "¿Deseas instalar (clonar) WebEngine CMS en $VPATH?\nADVERTENCIA: Si la carpeta no está vacía, podrían haber archivos en conflicto."
     [ $? -ne 0 ] && return
     
-    # 3. Prerequisites
-    echo -e "${CYAN}Asegurando requisitos previos (PHP 8.4, SqlSrv, CMS Essentials)...${NC}"
-    # Ensure PHP 8.4 and necessary modules
-    apt-get update && apt-get install -y php8.4 php8.4-fpm php8.4-curl php8.4-gd php8.4-mbstring php8.4-xml php8.4-zip
-    
-    # Call existing helper for CMS modules and SQLSRV
-    install_cms_essentials &>/dev/null
-    install_sqlsrv &>/dev/null
-    
+    # 3. Git Check (Skipping other prerequisites per user request)
     if ! command -v git &> /dev/null; then
         echo -e "${CYAN}Instalando Git...${NC}"
-        apt-get update && apt-get install -y git
+        apt-get install -y git
     fi
     
     # 4. Cloning

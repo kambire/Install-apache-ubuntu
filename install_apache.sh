@@ -70,17 +70,22 @@ function msg_box() {
 function input_box() {
     if [ $UI_WORKS -eq 0 ]; then
         local result
+        local exit_code
         result=$(whiptail --title "$1" --inputbox "$2" 10 60 "$3" 3>&1 1>&2 2>/dev/null)
-        if [ $? -eq 0 ]; then
+        exit_code=$?
+        if [ $exit_code -eq 0 ]; then
             echo "$result"
-        else
+            return
+        elif [ $exit_code -eq 1 ]; then
             echo ""
+            return
         fi
-    else
-        echo -e "${BLUE}--- $1 ---${NC}"
-        read -p "$2 [$3]: " result
-        echo "${result:-$3}"
+        UI_WORKS=1
     fi
+    # Text mode fallback
+    echo -e "${BLUE}--- $1 ---${NC}"
+    read -p "$2 [$3]: " result
+    echo "${result:-$3}"
 }
 
 function menu() {
@@ -89,22 +94,27 @@ function menu() {
     shift 2
     if [ $UI_WORKS -eq 0 ]; then
         local result
+        local exit_code
         result=$(whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>/dev/null)
-        if [ $? -eq 0 ]; then
+        exit_code=$?
+        if [ $exit_code -eq 0 ]; then
             echo "$result"
-        else
+            return
+        elif [ $exit_code -eq 1 ]; then
             echo ""
+            return
         fi
-    else
-        echo -e "${BLUE}--- $title ---${NC}"
-        echo "$text"
-        local options=("$@")
-        for ((i=0; i<${#options[@]}; i+=2)); do
-            echo "  ${options[i]}) ${options[i+1]}"
-        done
-        read -p "Selecciona una opción: " result
-        echo "$result"
+        UI_WORKS=1
     fi
+    # Text mode fallback
+    echo -e "${BLUE}--- $title ---${NC}"
+    echo "$text"
+    local options=("$@")
+    for ((i=0; i<${#options[@]}; i+=2)); do
+        echo "  ${options[i]}) ${options[i+1]}"
+    done
+    read -p "Selecciona una opción: " result
+    echo "$result"
 }
 
 function checklist() {
@@ -113,34 +123,43 @@ function checklist() {
     shift 2
     if [ $UI_WORKS -eq 0 ]; then
         local result
+        local exit_code
         result=$(whiptail --title "$title" --checklist "$text" 20 70 12 "$@" 3>&1 1>&2 2>/dev/null)
-        if [ $? -eq 0 ]; then
+        exit_code=$?
+        if [ $exit_code -eq 0 ]; then
             echo "$result"
-        else
+            return
+        elif [ $exit_code -eq 1 ]; then
             echo ""
+            return
         fi
-    else
-        echo -e "${BLUE}--- $title ---${NC}"
-        echo "$text (Escribe los valores separados por espacio)"
-        local options=("$@")
-        for ((i=0; i<${#options[@]}; i+=3)); do
-            echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]"
-        done
-        read -p "Opciones: " result
-        echo "$result"
+        UI_WORKS=1
     fi
+    # Text mode fallback
+    echo -e "${BLUE}--- $title ---${NC}"
+    echo "$text (Escribe los valores separados por espacio)"
+    local options=("$@")
+    for ((i=0; i<${#options[@]}; i+=3)); do
+        echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]"
+    done
+    read -p "Opciones: " result
+    echo "$result"
 }
 
 function yes_no() {
     if [ $UI_WORKS -eq 0 ]; then
         whiptail --title "$1" --yesno "$2" 10 60 2>/dev/null
-        return $?
-    else
-        echo -e "${BLUE}--- $1 ---${NC}"
-        read -p "$2 (y/n): " result
-        [[ $result =~ ^[Yy]$ ]] && return 0
-        return 1
+        local exit_code=$?
+        if [ $exit_code -le 1 ]; then
+            return $exit_code
+        fi
+        UI_WORKS=1
     fi
+    # Text mode fallback
+    echo -e "${BLUE}--- $1 ---${NC}"
+    read -p "$2 (y/n): " result
+    [[ $result =~ ^[Yy]$ ]] && return 0
+    return 1
 }
 
 # ==============================================================================
@@ -1454,7 +1473,8 @@ function main_menu() {
             17) diagnose_ssl ;;
             18) install_cms_essentials ;;
             19) install_webengine ;;
-            0|*) exit 0 ;;
+            0) exit 0 ;;
+            *) continue ;;
         esac
     done
 }

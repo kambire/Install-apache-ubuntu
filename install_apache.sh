@@ -309,11 +309,36 @@ function manage_extensions() {
 }
 
 function install_certbot() {
-    msg_box "Instalación de Certbot" "Certbot es una herramienta para automatizar el uso de certificados SSL de Let's Encrypt, permitiendo que tu sitio sea seguro (HTTPS) de forma gratuita."
-    echo -e "${CYAN}Installing Certbot for Apache...${NC}"
-    apt-get update
-    apt-get install -y certbot python3-certbot-apache
-    msg_box "Success" "Certbot has been installed correctly and is ready for use."
+    msg_box "Instalación de Certbot" "Certbot es una herramienta para automatizar el uso de certificados SSL de Let's Encrypt, permitiendo que tu sitio sea seguro (HTTPS) de forma gratuita.\n\nSe recomienda el uso de 'snap' en Ubuntu para una versión más actualizada."
+    
+    echo -e "${CYAN}Verificando estado de Certbot...${NC}"
+    
+    # 1. Attempt snap installation if on Ubuntu and snap exists
+    if command -v snap &> /dev/null && [[ "$OS" == "ubuntu" ]]; then
+        echo -e "${CYAN}Instalando Certbot vía Snap (Método recomendado)...${NC}"
+        # Remove any potential apt conflicts
+        apt-get remove -y certbot python3-certbot-apache 2>/dev/null
+        
+        snap install --classic certbot
+        if [ ! -f /usr/bin/certbot ]; then
+            ln -s /snap/bin/certbot /usr/bin/certbot 2>/dev/null
+        fi
+    else
+        # 2. Fallback to apt for Debian or if snap is missing
+        echo -e "${CYAN}Instalando Certbot vía APT...${NC}"
+        apt-get update
+        apt-get install -y certbot python3-certbot-apache
+    fi
+
+    # Verify installation
+    if command -v certbot &> /dev/null; then
+        VER=$(certbot --version 2>&1)
+        LOC=$(which certbot)
+        msg_box "Éxito" "Certbot ha sido instalado correctamente.\n\nVersión: $VER\nRuta: $LOC"
+    else
+        msg_box "Error de Instalación" "No se pudo encontrar el comando 'certbot' después de la instalación.\n\nIntenta ejecutar manualmente:\nsudo snap install --classic certbot"
+        return 1
+    fi
 }
 
 function add_ssl_to_existing() {
@@ -552,7 +577,7 @@ EOF
     # 5. SSL Execution
     if [ $WANT_SSL -eq 0 ]; then
         if ! command -v certbot &> /dev/null; then
-            apt-get install -y certbot python3-certbot-apache
+            install_certbot
         fi
         echo -e "${CYAN}Iniciando Certbot para $DOMAIN...${NC}"
         if host "www.$DOMAIN" &> /dev/null; then

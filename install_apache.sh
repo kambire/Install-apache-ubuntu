@@ -1182,11 +1182,24 @@ function diagnose_ssl() {
     # 5. Check for 000-default.conf interference
     if [ -f "/etc/apache2/sites-enabled/000-default.conf" ]; then
         if grep -q "<VirtualHost .*:443>" "/etc/apache2/sites-enabled/000-default.conf"; then
-             msg_box "Conflicto de Default" "Se detectó un bloque 443 en 000-default.conf que podría estar interfiriendo."
+             msg_box "CONFLITO DETECTADO" "Se detectó un bloque 443 en 000-default.conf que podría estar 'robando' el tráfico SSL de tu dominio.\n\nSe recomienda deshabilitar 000-default con: a2dissite 000-default"
         fi
     fi
+
+    # 5.1 Check for default-ssl.conf interference
+    if [ -f "/etc/apache2/sites-enabled/default-ssl.conf" ]; then
+         msg_box "Aviso: default-ssl activo" "Se detectó 'default-ssl.conf' habilitado. Si este archivo no tiene la configuración correcta para tu dominio, podría causar problemas de handshake.\nPrueba deshabilitarlo con: a2dissite default-ssl"
+    fi
+
+    # 6. Check for ModSecurity
+    if apache2ctl -M | grep -qi "security2"; then
+        msg_box "ModSecurity Detectado" "Se detectó 'mod_security2' activo. Este módulo puede bloquear peticiones que parezcan sospechosas o interferir con Certbot.\n\nSi sigues con errores, prueba desactivarlo temporalmente:\nsudo a2dismod security2 && sudo systemctl restart apache2"
+    fi
+
+    # 7. Cloudflare Hint
+    msg_box "Consejo Cloudflare" "Si usas Cloudflare, asegúrate de que el modo SSL en su panel esté en 'Full' o 'Full (Strict)'.\nSi está en 'Flexible', Cloudflare intentará entrar por el puerto 80 aunque el usuario pida HTTPS, lo que a veces causa bucles o errores."
     
-    msg_box "Fin del Diagnóstico" "Verificación terminada. Realiza una prueba en tu navegador."
+    msg_box "Fin del Diagnóstico" "Verificación terminada. Si el error persiste:\n1. Revisa los logs: tail -n 20 /var/log/apache2/error.log\n2. Asegúrate de que no haya firewalls bloqueando el puerto 443."
 }
 
 function delete_domain() {

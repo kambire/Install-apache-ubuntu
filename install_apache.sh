@@ -211,86 +211,94 @@ function install_apache_php() {
 }
 
 function manage_modules() {
-    msg_box "Gestión de Módulos" "Los módulos de Apache añaden funciones adicionales al servidor (como reescritura de URL o soporte SSL). Selecciona los que quieras activar."
+    msg_box "Gestión de Módulos" "Los módulos de Apache añaden funciones adicionales al servidor (como reescritura de URL o soporte SSL). El script detectará los módulos ya activos y los marcará automáticamente."
+    
+    echo -e "${CYAN}Detectando módulos activos...${NC}"
+    ENABLED_MODS=$(apache2ctl -M 2>/dev/null | awk '{print $1}' | sed 's/_module//')
+    
+    function check_mod() {
+        if echo "$ENABLED_MODS" | grep -qpx "$1"; then echo "ON"; else echo "OFF"; fi
+    }
+
     MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle, Up/Down to scroll):" \
-        "rewrite" "Redirects & Friendly URLs (URL Rewrite)" ON \
-        "ssl" "Strong cryptography (SSL/TLS)" ON \
-        "proxy_fcgi" "FastCGI support for proxy (REQUIRED for Multi-PHP)" ON \
-        "setenvif" "Environment variables based on request (REQUIRED for Multi-PHP)" ON \
-        "headers" "HTTP Header manipulation" OFF \
-        "proxy" "Multi-protocol proxy/gateway server" OFF \
-        "proxy_http" "Proxy HTTP protocol support" OFF \
-        "proxy_balancer" "Load balancing support for proxy" OFF \
-        "proxy_connect" "CONNECT request handling (HTTPS proxying)" OFF \
-        "proxy_http2" "HTTP/2 support module for proxy" OFF \
-        "http2" "Support for the HTTP/2 transport layer" OFF \
-        "expires" "Generation of Expires and Cache-Control headers" OFF \
-        "deflate" "Gzip/Compression support" OFF \
-        "brotli" "Brotli compression support" OFF \
-        "env" "Environment variables modification" OFF \
-        "mime" "Mime types and extension management" OFF \
-        "vhost_alias" "Dynamic mass virtual hosting" OFF \
-        "actions" "Execute CGI scripts based on media type" OFF \
-        "alias" "Mapping and URL redirection" OFF \
-        "allowmethods" "Restrict what HTTP methods can be used" OFF \
-        "auth_basic" "Basic HTTP authentication" OFF \
-        "auth_digest" "User authentication using MD5 Digest" OFF \
-        "auth_form" "Form authentication" OFF \
-        "authn_dbd" "User authentication using SQL database" OFF \
-        "authn_dbm" "User authentication using DBM files" OFF \
-        "authn_file" "User authentication using text files" OFF \
-        "authn_socache" "Cache of authentication credentials" OFF \
-        "authz_dbd" "Group Authorization and Login using SQL" OFF \
-        "authz_dbm" "Group authorization using DBM files" OFF \
-        "authz_groupfile" "Group authorization using plaintext files" OFF \
-        "authz_host" "Group authorizations based on host/IP" OFF \
-        "authz_owner" "Authorization based on file ownership" OFF \
-        "authz_user" "User Authorization" OFF \
-        "autoindex" "Generates directory indexes automatically" OFF \
-        "cache" "RFC 2616 compliant HTTP caching filter" OFF \
-        "cache_disk" "Disk based storage for the caching filter" OFF \
-        "cgi" "Execution of CGI scripts" OFF \
-        "cgid" "Execution of CGI scripts using external daemon" OFF \
-        "dav" "Distributed Authoring and Versioning (WebDAV)" OFF \
-        "dav_fs" "Filesystem provider for mod_dav" OFF \
-        "dbd" "Manages SQL database connections" OFF \
-        "ext_filter" "Pass response through external program" OFF \
-        "file_cache" "Caches static list of files in memory" OFF \
-        "filter" "Context-sensitive smart filter configuration" OFF \
-        "include" "Server Side Includes (SSI) support" OFF \
-        "info" "Overview of the server configuration" OFF \
-        "ldap" "LDAP connection pooling and result caching" OFF \
-        "log_debug" "Additional configurable debug logging" OFF \
-        "log_forensic" "Forensic Logging of requests" OFF \
-        "lua" "Lua hooks into request processing" OFF \
-        "macro" "Macros within configuration files" OFF \
-        "md" "Managed domains (ACME/Let's Encrypt support)" OFF \
-        "ratelimit" "Bandwidth Rate Limiting for Clients" OFF \
-        "remoteip" "Original client IP from proxies/balancers" OFF \
-        "reqtimeout" "Set timeout for receiving requests" OFF \
-        "sed" "Filter content using sed syntax" OFF \
-        "session" "Session support" OFF \
-        "session_cookie" "Cookie based session support" OFF \
-        "session_crypto" "Session encryption support" OFF \
-        "setenvif" "Set env variables based on request traits" OFF \
-        "socache_redis" "Redis based shared object cache" OFF \
-        "socache_shmcb" "shmcb based shared object cache" OFF \
-        "speling" "Attempts to correct minor URL misspellings" OFF \
-        "status" "Information on server activity/performance" OFF \
-        "substitute" "Search and replace on response bodies" OFF \
-        "suexec" "Run CGI scripts as specified user/group" OFF \
-        "unique_id" "Unique identifier for each request" OFF \
-        "userdir" "User-specific directories (~user)" OFF \
-        "usertrack" "Clickstream logging of user activity" OFF \
-        "version" "Version dependent configuration" OFF \
-        "xml2enc" "Internationalisation support for libxml2")
+        "rewrite" "Redirects & Friendly URLs (URL Rewrite)" $(check_mod "rewrite") \
+        "ssl" "Strong cryptography (SSL/TLS)" $(check_mod "ssl") \
+        "proxy_fcgi" "FastCGI support for proxy" $(check_mod "proxy_fcgi") \
+        "setenvif" "Environment variables" $(check_mod "setenvif") \
+        "headers" "HTTP Header manipulation" $(check_mod "headers") \
+        "proxy" "Multi-protocol proxy/gateway" $(check_mod "proxy") \
+        "proxy_http" "Proxy HTTP protocol support" $(check_mod "proxy_http") \
+        "proxy_balancer" "Load balancing support" $(check_mod "proxy_balancer") \
+        "proxy_connect" "CONNECT request handling" $(check_mod "proxy_connect") \
+        "proxy_http2" "HTTP/2 support module for proxy" $(check_mod "proxy_http2") \
+        "http2" "Support for the HTTP/2" $(check_mod "http2") \
+        "expires" "Expires and Cache-Control headers" $(check_mod "expires") \
+        "deflate" "Gzip/Compression support" $(check_mod "deflate") \
+        "brotli" "Brotli compression support" $(check_mod "brotli") \
+        "env" "Environment variables modification" $(check_mod "env") \
+        "mime" "Mime types and management" $(check_mod "mime") \
+        "security2" "ModSecurity WAF" $(check_mod "security2") \
+        "vhost_alias" "Dynamic mass virtual hosting" $(check_mod "vhost_alias") \
+        "actions" "Execute CGI scripts" $(check_mod "actions") \
+        "alias" "Mapping and URL redirection" $(check_mod "alias") \
+        "allowmethods" "Restrict what HTTP methods" $(check_mod "allowmethods") \
+        "auth_basic" "Basic HTTP authentication" $(check_mod "auth_basic") \
+        "auth_digest" "User auth using MD5 Digest" $(check_mod "auth_digest") \
+        "auth_form" "Form authentication" $(check_mod "auth_form") \
+        "authn_dbd" "User auth using SQL database" $(check_mod "authn_dbd") \
+        "authn_dbm" "User auth using DBM files" $(check_mod "authn_dbm") \
+        "authn_file" "User auth using text files" $(check_mod "authn_file") \
+        "authn_socache" "Cache of auth credentials" $(check_mod "authn_socache") \
+        "authz_dbd" "Group Authorization SQL" $(check_mod "authz_dbd") \
+        "authz_dbm" "Group auth using DBM files" $(check_mod "authz_dbm") \
+        "authz_groupfile" "Group auth using files" $(check_mod "authz_groupfile") \
+        "authz_host" "Group auth based on host/IP" $(check_mod "authz_host") \
+        "authz_owner" "Auth based on file ownership" $(check_mod "authz_owner") \
+        "authz_user" "User Authorization" $(check_mod "authz_user") \
+        "autoindex" "Directory indexes automatically" $(check_mod "autoindex") \
+        "cache" "RFC 2616 HTTP caching filter" $(check_mod "cache") \
+        "cache_disk" "Disk storage for caching" $(check_mod "cache_disk") \
+        "cgi" "Execution of CGI scripts" $(check_mod "cgi") \
+        "cgid" "Execution of CGI using daemon" $(check_mod "cgid") \
+        "dav" "WebDAV" $(check_mod "dav") \
+        "dav_fs" "Filesystem provider for mod_dav" $(check_mod "dav_fs") \
+        "dbd" "SQL database connections" $(check_mod "dbd") \
+        "ext_filter" "Pass response through external" $(check_mod "ext_filter") \
+        "file_cache" "Caches static list of files" $(check_mod "file_cache") \
+        "filter" "Context-sensitive smart filter" $(check_mod "filter") \
+        "include" "Server Side Includes (SSI)" $(check_mod "include") \
+        "info" "Overview of server config" $(check_mod "info") \
+        "ldap" "LDAP connection pooling" $(check_mod "ldap") \
+        "log_debug" "Configurable debug logging" $(check_mod "log_debug") \
+        "log_forensic" "Forensic Logging of requests" $(check_mod "log_forensic") \
+        "lua" "Lua hooks into request processing" $(check_mod "lua") \
+        "macro" "Macros within config files" $(check_mod "macro") \
+        "md" "Managed domains (Let's Encrypt)" $(check_mod "md") \
+        "ratelimit" "Bandwidth Rate Limiting" $(check_mod "ratelimit") \
+        "remoteip" "Original client IP from proxies" $(check_mod "remoteip") \
+        "reqtimeout" "Set timeout for requests" $(check_mod "reqtimeout") \
+        "sed" "Filter content using sed" $(check_mod "sed") \
+        "session" "Session support" $(check_mod "session") \
+        "session_cookie" "Cookie based session" $(check_mod "session_cookie") \
+        "session_crypto" "Session encryption support" $(check_mod "session_crypto") \
+        "socache_redis" "Redis shared object cache" $(check_mod "socache_redis") \
+        "socache_shmcb" "shmcb shared object cache" $(check_mod "socache_shmcb") \
+        "speling" "Attempts to correct URL spelling" $(check_mod "speling") \
+        "status" "Information on server activity" $(check_mod "status") \
+        "substitute" "Search and replace on response" $(check_mod "substitute") \
+        "suexec" "Run CGI scripts as user/group" $(check_mod "suexec") \
+        "unique_id" "Unique identifier request" $(check_mod "unique_id") \
+        "userdir" "User-specific (~user)" $(check_mod "userdir") \
+        "usertrack" "Clickstream logging of activity" $(check_mod "usertrack") \
+        "version" "Version dependent configuration" $(check_mod "version") \
+        "xml2enc" "I18n support for libxml2" $(check_mod "xml2enc"))
     
     if [ -n "$MODS" ]; then
         echo -e "${CYAN}Enabling selected modules...${NC}"
         # Remove quotes and spaces from the whiptail output
         MODS=$(echo $MODS | sed 's/"//g')
         for mod in $MODS; do
-            a2enmod "$mod"
+            a2enmod "$mod" >/dev/null 2>&1
         done
         systemctl restart apache2
         msg_box "Success" "The selected modules have been enabled."

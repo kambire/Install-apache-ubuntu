@@ -381,11 +381,14 @@ function manage_extensions() {
     fi
 
     # 2. Get list of currently installed modules for detection
-    INSTALLED_MODS=$(php$DETECTION_VER -m 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    INSTALLED_MODS=$(php$DETECTION_VER -m 2>/dev/null | tr -d '\r')
+    if [ -z "$INSTALLED_MODS" ]; then
+        INSTALLED_MODS=$(php -m 2>/dev/null | tr -d '\r')
+    fi
 
     # 3. Define a helper to check status
     function check_ext() {
-        if echo "$INSTALLED_MODS" | grep -qw "$1"; then echo "ON"; else echo "OFF"; fi
+        if echo "$INSTALLED_MODS" | grep -qix "$1"; then echo "ON"; else echo "OFF"; fi
     }
 
     # checklist

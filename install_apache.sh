@@ -1441,6 +1441,36 @@ function delete_domain() {
     msg_box "Éxito" "El Virtual Host $DOMAIN ha sido eliminado correctamente."
 }
 
+function prevent_sni_fallback() {
+    msg_box "Prevenir Fallback SSL (SNI)" "Esta función configurará Apache para rechazar peticiones HTTPS a dominios no configurados. Esto evita que tu dominio principal se muestre por error cuando alguien entra por HTTPS a un subdominio que no tiene SSL."
+    
+    echo -e "${CYAN}Generando certificado auto-firmado de descarte...${NC}"
+    apt-get install -y ssl-cert &> /dev/null
+    make-ssl-cert generate-default-snakeoil --force-overwrite &> /dev/null
+    
+    echo -e "${CYAN}Creando configuración Catch-All (Default)...${NC}"
+    cat <<EOF > /etc/apache2/sites-available/000-catchall-ssl.conf
+<VirtualHost *:443>
+    # Este VHost atrapará todas las peticiones HTTPS no reconocidas
+    ServerName localhost
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/ssl-cert-snakeoil.pem
+    SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key
+    
+    # Bloquear el acceso completamente
+    <Location />
+        Require all denied
+    </Location>
+</VirtualHost>
+EOF
+    
+    a2enmod ssl &> /dev/null
+    a2ensite 000-catchall-ssl.conf &> /dev/null
+    
+    systemctl restart apache2
+    msg_box "Éxito" "Se ha activado la protección Catch-All.\n\nCualquier petición HTTPS a un dominio sin su propio certificado instalado ahora será bloqueada (403 Forbidden) en lugar de mostrar tu página principal."
+}
+
 function install_cms_essentials() {
     msg_box "Esenciales para CMS" "Esta opción instalará y activará los módulos necesarios para WebEngine, FusionCMS y otros: mod_rewrite, mod_security2, mod_headers, mod_expires, mod_deflate y mod_unique_id."
     
@@ -1484,11 +1514,12 @@ function main_menu() {
             "13" "Install Certbot (SSL)" \
             "14" "Add SSL to Existing Domain" \
             "15" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
-            "16" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
-            "17" "Instalar WebEngine CMS" \
-            "18" "Instalar AzerothCMS" \
-            "19" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
-            "20" "Update Script from GitHub" \
+            "16" "Bloquear Dominios sin SSL (Prevenir Error de Redirección)" \
+            "17" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
+            "18" "Instalar WebEngine CMS" \
+            "19" "Instalar AzerothCMS" \
+            "20" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
+            "21" "Update Script from GitHub" \
             "0" "Exit")
 
         case "$CHOICE" in
@@ -1507,11 +1538,12 @@ function main_menu() {
             13) install_certbot ;;
             14) add_ssl_to_existing ;;
             15) diagnose_ssl ;;
-            16) install_cms_essentials ;;
-            17) install_webengine ;;
-            18) install_azerothcms ;;
-            19) manage_users ;;
-            20) 
+            16) prevent_sni_fallback ;;
+            17) install_cms_essentials ;;
+            18) install_webengine ;;
+            19) install_azerothcms ;;
+            20) manage_users ;;
+            21) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0

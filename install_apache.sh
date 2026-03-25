@@ -291,6 +291,56 @@ function manage_modules() {
         "userdir" "User-specific (~user)" $(check_mod "userdir") \
         "usertrack" "Clickstream logging of activity" $(check_mod "usertrack") \
         "version" "Version dependent configuration" $(check_mod "version") \
+        "access_compat" "Group authorizations based on host" $(check_mod "access_compat") \
+        "asis" "Sends files that contain their own HTTP headers" $(check_mod "asis") \
+        "authn_anon" "Allows anonymous user access" $(check_mod "authn_anon") \
+        "authn_core" "Core Authentication" $(check_mod "authn_core") \
+        "authnz_fcgi" "FastCGI authorizer application" $(check_mod "authnz_fcgi") \
+        "authnz_ldap" "LDAP directory HTTP Basic auth" $(check_mod "authnz_ldap") \
+        "authz_core" "Core Authorization" $(check_mod "authz_core") \
+        "buffer" "Support for request buffering" $(check_mod "buffer") \
+        "cache_socache" "Shared object cache for HTTP caching" $(check_mod "cache_socache") \
+        "cern_meta" "CERN httpd metafile semantics" $(check_mod "cern_meta") \
+        "charset_lite" "Specify character set translation" $(check_mod "charset_lite") \
+        "data" "Convert response body into RFC2397 data URL" $(check_mod "data") \
+        "dav_lock" "Generic locking module for mod_dav" $(check_mod "dav_lock") \
+        "dialup" "Send static content at bandwidth rate limit" $(check_mod "dialup") \
+        "dir" "Trailing slash redirects and index files" $(check_mod "dir") \
+        "dumpio" "Dumps all I/O to error log" $(check_mod "dumpio") \
+        "echo" "A simple echo server" $(check_mod "echo") \
+        "example_hooks" "Illustrates the Apache module API" $(check_mod "example_hooks") \
+        "heartbeat" "Sends messages with server status" $(check_mod "heartbeat") \
+        "heartmonitor" "Centralized monitor for heartbeat" $(check_mod "heartmonitor") \
+        "ident" "RFC 1413 ident lookups" $(check_mod "ident") \
+        "imagemap" "Server-side imagemap processing" $(check_mod "imagemap") \
+        "lbmethod_bybusyness" "Pending Request Counting balancer" $(check_mod "lbmethod_bybusyness") \
+        "lbmethod_bytraffic" "Weighted Traffic Counting balancer" $(check_mod "lbmethod_bytraffic") \
+        "lbmethod_heartbeat" "Heartbeat Traffic balancer" $(check_mod "lbmethod_heartbeat") \
+        "log_config" "Logging of the requests" $(check_mod "log_config") \
+        "logio" "Logging of input and output bytes" $(check_mod "logio") \
+        "mime_magic" "Determines MIME type by looking at bytes" $(check_mod "mime_magic") \
+        "negotiation" "Provides for content negotiation" $(check_mod "negotiation") \
+        "privileges" "Support for Solaris privileges" $(check_mod "privileges") \
+        "proxy_ajp" "AJP support module for mod_proxy" $(check_mod "proxy_ajp") \
+        "proxy_express" "Dynamic mass reverse proxy" $(check_mod "proxy_express") \
+        "proxy_fdpass" "fdpass external process support" $(check_mod "proxy_fdpass") \
+        "proxy_ftp" "FTP support module for mod_proxy" $(check_mod "proxy_ftp") \
+        "proxy_hcheck" "Dynamic health check of Balancer" $(check_mod "proxy_hcheck") \
+        "proxy_html" "Rewrite HTML links in proxy context" $(check_mod "proxy_html") \
+        "proxy_scgi" "SCGI gateway module for mod_proxy" $(check_mod "proxy_scgi") \
+        "proxy_uwsgi" "UWSGI gateway module for mod_proxy" $(check_mod "proxy_uwsgi") \
+        "proxy_wstunnel" "Websockets support module for mod_proxy" $(check_mod "proxy_wstunnel") \
+        "reflector" "Reflect a request body as a response" $(check_mod "reflector") \
+        "request" "Filters to make request bodies available" $(check_mod "request") \
+        "session_dbd" "DBD/SQL based session support" $(check_mod "session_dbd") \
+        "slotmem_plain" "Slot-based shared memory provider" $(check_mod "slotmem_plain") \
+        "slotmem_shm" "Slot-based shared memory (shm)" $(check_mod "slotmem_shm") \
+        "socache_dbm" "DBM based shared object cache" $(check_mod "socache_dbm") \
+        "socache_dc" "Distcache based shared object cache" $(check_mod "socache_dc") \
+        "socache_memcache" "Memcache based cache provider" $(check_mod "socache_memcache") \
+        "systemd" "Support for systemd integration" $(check_mod "systemd") \
+        "unixd" "Basic security for Unix-family" $(check_mod "unixd") \
+        "watchdog" "Infrastructure for periodic tasks" $(check_mod "watchdog") \
         "xml2enc" "I18n support for libxml2" $(check_mod "xml2enc"))
     
     if [ -n "$MODS" ]; then

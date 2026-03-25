@@ -21,13 +21,25 @@ if [ -d .git ] && command -v git &> /dev/null; then
     
     # Force reset to discard any local changes that might cause conflicts
     echo -e "${YELLOW}Limpiando cambios locales y buscando actualizaciones...${NC}"
+    # Guarda el hash actual y descarga novedades
+    OLD_HASH=$(git rev-parse HEAD 2>/dev/null)
     git fetch origin main &> /dev/null
     git reset --hard origin/main
     
     if [ $? -eq 0 ]; then
         chmod +x *.sh
+        NEW_HASH=$(git rev-parse HEAD 2>/dev/null)
+        
         echo -e "\n${GREEN}¡Actualización GIT completada con éxito!${NC}"
-        echo -e "Versión actual: $(grep "# Version:" install_apache.sh | awk '{print $3}')"
+        
+        if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+            echo -e "${CYAN}Resumen de cambios desde la última versión:${NC}"
+            git diff --stat $OLD_HASH $NEW_HASH
+        else
+            echo -e "${YELLOW}No hubo descargas nuevas, ya estabas en la última versión.${NC}"
+        fi
+        
+        echo -e "\nVersión actual: $(grep "# Version:" install_apache.sh | awk '{print $3}')"
         echo -e "Ya puedes ejecutar: sudo ./install_apache.sh"
         exit 0
     else

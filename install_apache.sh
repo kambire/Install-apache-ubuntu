@@ -1173,11 +1173,16 @@ function change_vhost_php() {
     fi
     
     OPTIONS=()
+    DOMAINS_ARR=()
+    C=1
     for site in $SITES; do
-        OPTIONS+=("$site" "Configuración de Apache")
+        OPTIONS+=("$C" "$site")
+        DOMAINS_ARR[$C]="$site"
+        ((C++))
     done
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio que deseas modificar:" "${OPTIONS[@]}")
-    [ -z "$DOMAIN" ] && return
+    CHOICE=$(menu "Seleccionar Dominio" "Elige el dominio que deseas modificar:" "${OPTIONS[@]}")
+    [ -z "$CHOICE" ] && return
+    DOMAIN="${DOMAINS_ARR[$CHOICE]}"
     
     CONF_FILE="/etc/apache2/sites-available/$DOMAIN.conf"
     
@@ -1239,11 +1244,16 @@ function diagnose_ssl() {
     fi
     
     OPTIONS=()
+    DOMAINS_ARR=()
+    C=1
     for site in $SITES; do
-        OPTIONS+=("$site" "Dominio detectado")
+        OPTIONS+=("$C" "$site")
+        DOMAINS_ARR[$C]="$site"
+        ((C++))
     done
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio que tiene el problema para analizar su configuración:" "${OPTIONS[@]}")
-    [ -z "$DOMAIN" ] && return
+    CHOICE=$(menu "Seleccionar Dominio" "Elige el dominio que tiene el problema para analizar su configuración:" "${OPTIONS[@]}")
+    [ -z "$CHOICE" ] && return
+    DOMAIN="${DOMAINS_ARR[$CHOICE]}"
     
     # Search for SSL config file
     SSL_FILE=""
@@ -1311,11 +1321,16 @@ function install_webengine() {
     fi
     
     OPTIONS=()
+    DOMAINS_ARR=()
+    C=1
     for site in $SITES; do
-        OPTIONS+=("$site" "Virtual Host")
+        OPTIONS+=("$C" "$site")
+        DOMAINS_ARR[$C]="$site"
+        ((C++))
     done
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar WebEngine CMS:" "${OPTIONS[@]}")
-    [ -z "$DOMAIN" ] && return
+    CHOICE=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar WebEngine CMS:" "${OPTIONS[@]}")
+    [ -z "$CHOICE" ] && return
+    DOMAIN="${DOMAINS_ARR[$CHOICE]}"
     
     # 2. Get DocumentRoot
     VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
@@ -1364,11 +1379,16 @@ function install_azerothcms() {
     fi
     
     OPTIONS=()
+    DOMAINS_ARR=()
+    C=1
     for site in $SITES; do
-        OPTIONS+=("$site" "Virtual Host")
+        OPTIONS+=("$C" "$site")
+        DOMAINS_ARR[$C]="$site"
+        ((C++))
     done
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar AzerothCMS:" "${OPTIONS[@]}")
-    [ -z "$DOMAIN" ] && return
+    CHOICE=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar AzerothCMS:" "${OPTIONS[@]}")
+    [ -z "$CHOICE" ] && return
+    DOMAIN="${DOMAINS_ARR[$CHOICE]}"
     
     # 2. Get DocumentRoot
     VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
@@ -1421,13 +1441,17 @@ function delete_domain() {
         fi
         
         OPTIONS=()
+        DOMAINS_ARR=()
+        C=1
         for site in $SITES; do
-            OPTIONS+=("$site" "Configuración de Apache")
+            OPTIONS+=("$C" "$site")
+            DOMAINS_ARR[$C]="$site"
+            ((C++))
         done
         
-        DOMAIN=$(menu "Seleccionar Dominio para ELIMINAR" "Elige el dominio que deseas borrar permanentemente:" "${OPTIONS[@]}")
-        
-        [ -z "$DOMAIN" ] && return
+        CHOICE=$(menu "Seleccionar Dominio para ELIMINAR" "Elige el dominio que deseas borrar permanentemente:" "${OPTIONS[@]}")
+        [ -z "$CHOICE" ] && return
+        DOMAIN="${DOMAINS_ARR[$CHOICE]}"
     fi
     
     yes_no "Confirmar Eliminación" "¿Estás SEGURO de que deseas eliminar la configuración de $DOMAIN? Esta acción no se puede deshacer."

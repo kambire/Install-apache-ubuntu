@@ -1238,7 +1238,11 @@ function diagnose_ssl() {
         return
     fi
     
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio que tiene el problema para analizar su configuración:" $SITES)
+    OPTIONS=()
+    for site in $SITES; do
+        OPTIONS+=("$site" "Dominio detectado")
+    done
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio que tiene el problema para analizar su configuración:" "${OPTIONS[@]}")
     [ -z "$DOMAIN" ] && return
     
     # Search for SSL config file
@@ -1306,7 +1310,11 @@ function install_webengine() {
         return
     fi
     
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar WebEngine CMS:" $SITES)
+    OPTIONS=()
+    for site in $SITES; do
+        OPTIONS+=("$site" "Virtual Host")
+    done
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar WebEngine CMS:" "${OPTIONS[@]}")
     [ -z "$DOMAIN" ] && return
     
     # 2. Get DocumentRoot
@@ -1355,7 +1363,11 @@ function install_azerothcms() {
         return
     fi
     
-    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar AzerothCMS:" $SITES)
+    OPTIONS=()
+    for site in $SITES; do
+        OPTIONS+=("$site" "Virtual Host")
+    done
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar AzerothCMS:" "${OPTIONS[@]}")
     [ -z "$DOMAIN" ] && return
     
     # 2. Get DocumentRoot

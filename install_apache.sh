@@ -1340,6 +1340,52 @@ function install_webengine() {
         apply_permissions "$OWNER" "$VPATH"
         
         msg_box "Éxito" "WebEngine CMS ha sido descargado en $VPATH.\n\nPRÓXIMOS PASOS:\n1. Visita http://$DOMAIN/install en tu navegador.\n2. Configura el Cron Job: /includes/cron/cron.php (Cada minuto)."
+}
+
+function install_azerothcms() {
+    msg_box "Instalador AzerothCMS" "Esta opción descargará e instalará AzerothCMS en el dominio que selecciones."
+    
+    # 1. Select Domain
+    SITES=$(ls /etc/apache2/sites-available/ | grep ".conf$" | sed 's/.conf$//' | grep -vx "000-default" | grep -vx "default-ssl")
+    if [ -z "$SITES" ]; then
+        msg_box "Error" "No se encontraron Virtual Hosts. Crea uno primero (Opción 6)."
+        return
+    fi
+    
+    DOMAIN=$(menu "Seleccionar Dominio" "Elige el dominio donde instalar AzerothCMS:" $SITES)
+    [ -z "$DOMAIN" ] && return
+    
+    # 2. Get DocumentRoot
+    VPATH=$(grep "DocumentRoot" "/etc/apache2/sites-available/$DOMAIN.conf" | awk '{print $2}' | head -n 1)
+    if [ -z "$VPATH" ] || [ ! -d "$VPATH" ]; then
+        msg_box "Error" "No se pudo determinar la ruta del dominio o la carpeta no existe."
+        return
+    fi
+    
+    yes_no "Confirmar Instalación" "¿Deseas instalar (clonar) AzerothCMS en $VPATH?\nADVERTENCIA: Si la carpeta no está vacía, podrían haber archivos en conflicto."
+    [ $? -ne 0 ] && return
+    
+    # 3. Git Check
+    if ! command -v git &> /dev/null; then
+        echo -e "${CYAN}Instalando Git...${NC}"
+        apt-get install -y git
+    fi
+    
+    # 4. Cloning
+    echo -e "${CYAN}Clonando AzerothCMS en $VPATH...${NC}"
+    TEMP_CLONE="/tmp/azerothcms_clone_$(date +%s)"
+    git clone https://github.com/kambire/AzerothCMS-reload.git "$TEMP_CLONE"
+    
+    if [ $? -eq 0 ]; then
+        # Copy to domain folder
+        cp -r "$TEMP_CLONE"/. "$VPATH"/
+        rm -rf "$TEMP_CLONE"
+        
+        # 5. Permissions
+        OWNER=$(ls -ld "$VPATH" | awk '{print $3}')
+        apply_permissions "$OWNER" "$VPATH"
+        
+        msg_box "Éxito" "AzerothCMS ha sido descargado en $VPATH.\n\nSigue las instrucciones del CMS para completar la instalación."
     else
         msg_box "Error" "Hubo un problema al clonar el repositorio de GitHub."
     fi
@@ -1439,6 +1485,7 @@ function main_menu() {
             "17" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
             "18" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
             "19" "Instalar WebEngine CMS" \
+            "20" "Instalar AzerothCMS" \
             "0" "Exit")
 
         case "$CHOICE" in
@@ -1468,6 +1515,7 @@ function main_menu() {
             17) diagnose_ssl ;;
             18) install_cms_essentials ;;
             19) install_webengine ;;
+            20) install_azerothcms ;;
             0) exit 0 ;;
             "") # Empty choice happens on cancel or whiptail failure
                 # If whiptail is failing, we must force UI_WORKS=1 in the parent shell too

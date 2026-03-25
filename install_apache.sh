@@ -217,7 +217,7 @@ function manage_modules() {
     ENABLED_MODS=$(apache2ctl -M 2>/dev/null | awk '{print $1}' | sed 's/_module//')
     
     function check_mod() {
-        if echo "$ENABLED_MODS" | grep -qpx "$1"; then echo "ON"; else echo "OFF"; fi
+        if echo "$ENABLED_MODS" | grep -qw "$1"; then echo "ON"; else echo "OFF"; fi
     }
 
     MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle, Up/Down to scroll):" \
@@ -335,7 +335,7 @@ function manage_extensions() {
 
     # 3. Define a helper to check status
     function check_ext() {
-        if echo "$INSTALLED_MODS" | grep -qpx "$1"; then echo "ON"; else echo "OFF"; fi
+        if echo "$INSTALLED_MODS" | grep -qw "$1"; then echo "ON"; else echo "OFF"; fi
     }
 
     # checklist

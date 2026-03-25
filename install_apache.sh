@@ -1406,7 +1406,18 @@ function install_azerothcms() {
         apt-get install -y git
     fi
     
-    # 4. Cloning
+    # 4. Install CMS Prerequisites
+    echo -e "${CYAN}Activando módulos de Apache requeridos (rewrite, headers, expires, deflate, filter)...${NC}"
+    a2enmod rewrite headers expires deflate filter &> /dev/null
+    
+    echo -e "${CYAN}Instalando extensiones PHP requeridas en todas las versiones...${NC}"
+    INSTALLED_PHP=$(ls /etc/php/ 2>/dev/null | grep -E '^[0-9]+\.[0-9]+$')
+    for v in $INSTALLED_PHP; do
+        apt-get install -y php$v-mysql php$v-curl php$v-soap php$v-gd php$v-gmp php$v-mbstring php$v-intl php$v-xml php$v-zip php$v-mcrypt &> /dev/null
+    done
+    systemctl restart apache2
+    
+    # 5. Cloning
     echo -e "${CYAN}Clonando AzerothCMS en $VPATH...${NC}"
     TEMP_CLONE="/tmp/azerothcms_clone_$(date +%s)"
     git clone https://github.com/kambire/AzerothCMS-reload.git "$TEMP_CLONE"
@@ -1416,11 +1427,19 @@ function install_azerothcms() {
         cp -r "$TEMP_CLONE"/. "$VPATH"/
         rm -rf "$TEMP_CLONE"
         
-        # 5. Permissions
+        # 6. General Permissions
         OWNER=$(ls -ld "$VPATH" | awk '{print $3}')
         apply_permissions "$OWNER" "$VPATH"
         
-        msg_box "Éxito" "AzerothCMS ha sido descargado en $VPATH.\n\nSigue las instrucciones del CMS para completar la instalación."
+        # 7. CMS-Specific Folder Writable Permissions
+        echo -e "${CYAN}Aplicando permisos de escritura para directorios de AzerothCMS...${NC}"
+        for folder in "application/config" "application/modules" "writable/cache" "writable/backups" "writable/logs" "writable/uploads"; do
+            # Create the folder if it doesn't exist yet, as some might be generated later but we need them writable now
+            mkdir -p "$VPATH/$folder"
+            chmod -R 777 "$VPATH/$folder"
+        done
+        
+        msg_box "Éxito" "AzerothCMS ha sido instalado en $VPATH con todos sus Requisitos.\n\nSe instalaron extensiones PHP, Módulos Apache y se dieron permisos a las carpetas requeridas."
     else
         msg_box "Error" "Hubo un problema al clonar el repositorio de GitHub."
     fi

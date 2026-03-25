@@ -1469,36 +1469,36 @@ function install_cms_essentials() {
 function main_menu() {
     while true; do
         CHOICE=$(menu "Main Menu" "Select an option to manage your Apache server:" \
-            "--1" "====== SERVIDOR Y BBDD ======" \
+            "S1" "====== SERVIDOR Y BBDD ======" \
             "1" "Install Apache & PHP (Core)" \
             "2" "Gestión de MySQL (Instalar/DB/Usuarios)" \
             "3" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
             "4" "Restart Apache" \
-            "--2" "====== EXTENSIONES Y MÓDULOS ======" \
+            "S2" "====== EXTENSIONES Y MÓDULOS ======" \
             "5" "Install PHP Extensions (List)" \
             "6" "Install Custom PHP Extension" \
             "7" "Install Apache Modules" \
-            "--3" "====== DOMINIOS Y VIRTUAL HOSTS ======" \
+            "S3" "====== DOMINIOS Y VIRTUAL HOSTS ======" \
             "8" "Add New Virtual Host" \
             "9" "List/Manage Virtual Hosts" \
             "10" "Cambiar Versión de PHP por Dominio" \
             "11" "Delete Virtual Host" \
             "12" "Reparar Permisos (Fix Permissions)" \
-            "--4" "====== SEGURIDAD Y SSL ======" \
+            "S4" "====== SEGURIDAD Y SSL ======" \
             "13" "Install Certbot (SSL)" \
             "14" "Add SSL to Existing Domain" \
             "15" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
-            "--5" "====== UTILIDADES CMS ======" \
+            "S5" "====== UTILIDADES CMS ======" \
             "16" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
             "17" "Instalar WebEngine CMS" \
             "18" "Instalar AzerothCMS" \
-            "--6" "====== SISTEMA ======" \
+            "S6" "====== SISTEMA ======" \
             "19" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
             "20" "Update Script from GitHub" \
             "0" "Exit")
 
         case "$CHOICE" in
-            --*) continue ;;
+            S*) continue ;;
             1) install_apache_php ;;
             2) manage_mysql ;;
             3) install_sqlsrv ;;

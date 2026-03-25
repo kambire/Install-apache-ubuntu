@@ -1469,45 +1469,56 @@ function install_cms_essentials() {
 function main_menu() {
     while true; do
         CHOICE=$(menu "Main Menu" "Select an option to manage your Apache server:" \
+            "--1" "====== SERVIDOR Y BBDD ======" \
             "1" "Install Apache & PHP (Core)" \
-            "2" "Install PHP Extensions (List)" \
-            "3" "Install Custom PHP Extension" \
-            "4" "Install Apache Modules" \
-            "5" "Install Certbot (SSL)" \
-            "6" "Add New Virtual Host" \
-            "7" "Add SSL to Existing Domain" \
-            "8" "List/Manage Virtual Hosts" \
-            "9" "Delete Virtual Host" \
-            "10" "Reparar Permisos (Fix Permissions)" \
-            "11" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
-            "12" "Gestión de MySQL (Instalar/DB/Usuarios)" \
-            "13" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
-            "14" "Cambiar Versión de PHP por Dominio" \
-            "15" "Restart Apache" \
-            "16" "Update Script from GitHub" \
-            "17" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
-            "18" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
-            "19" "Instalar WebEngine CMS" \
-            "20" "Instalar AzerothCMS" \
+            "2" "Gestión de MySQL (Instalar/DB/Usuarios)" \
+            "3" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
+            "4" "Restart Apache" \
+            "--2" "====== EXTENSIONES Y MÓDULOS ======" \
+            "5" "Install PHP Extensions (List)" \
+            "6" "Install Custom PHP Extension" \
+            "7" "Install Apache Modules" \
+            "--3" "====== DOMINIOS Y VIRTUAL HOSTS ======" \
+            "8" "Add New Virtual Host" \
+            "9" "List/Manage Virtual Hosts" \
+            "10" "Cambiar Versión de PHP por Dominio" \
+            "11" "Delete Virtual Host" \
+            "12" "Reparar Permisos (Fix Permissions)" \
+            "--4" "====== SEGURIDAD Y SSL ======" \
+            "13" "Install Certbot (SSL)" \
+            "14" "Add SSL to Existing Domain" \
+            "15" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
+            "--5" "====== UTILIDADES CMS ======" \
+            "16" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
+            "17" "Instalar WebEngine CMS" \
+            "18" "Instalar AzerothCMS" \
+            "--6" "====== SISTEMA ======" \
+            "19" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
+            "20" "Update Script from GitHub" \
             "0" "Exit")
 
         case "$CHOICE" in
+            --*) continue ;;
             1) install_apache_php ;;
-            2) manage_extensions ;;
-            3) install_custom_extension ;;
-            4) manage_modules ;;
-            5) install_certbot ;;
-            6) add_domain ;;
-            7) add_ssl_to_existing ;;
-            8) list_vhosts ;;
-            9) delete_domain ;;
-            10) fix_permissions ;;
-            11) manage_users ;;
-            12) manage_mysql ;;
-            13) install_sqlsrv ;;
-            14) change_vhost_php ;;
-            15) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
-            16) 
+            2) manage_mysql ;;
+            3) install_sqlsrv ;;
+            4) systemctl restart apache2 && msg_box "Restart" "Apache2 has been restarted." ;;
+            5) manage_extensions ;;
+            6) install_custom_extension ;;
+            7) manage_modules ;;
+            8) add_domain ;;
+            9) list_vhosts ;;
+            10) change_vhost_php ;;
+            11) delete_domain ;;
+            12) fix_permissions ;;
+            13) install_certbot ;;
+            14) add_ssl_to_existing ;;
+            15) diagnose_ssl ;;
+            16) install_cms_essentials ;;
+            17) install_webengine ;;
+            18) install_azerothcms ;;
+            19) manage_users ;;
+            20) 
                 if [ -f "./update.sh" ]; then
                     bash ./update.sh
                     exit 0
@@ -1515,10 +1526,6 @@ function main_menu() {
                     msg_box "Error" "Update script (update.sh) not found in the current directory."
                 fi
                 ;;
-            17) diagnose_ssl ;;
-            18) install_cms_essentials ;;
-            19) install_webengine ;;
-            20) install_azerothcms ;;
             0) exit 0 ;;
             "") # Empty choice happens on cancel or whiptail failure
                 # If whiptail is failing, we must force UI_WORKS=1 in the parent shell too

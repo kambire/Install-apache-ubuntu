@@ -1340,6 +1340,9 @@ function install_webengine() {
         apply_permissions "$OWNER" "$VPATH"
         
         msg_box "Éxito" "WebEngine CMS ha sido descargado en $VPATH.\n\nPRÓXIMOS PASOS:\n1. Visita http://$DOMAIN/install en tu navegador.\n2. Configura el Cron Job: /includes/cron/cron.php (Cada minuto)."
+    else
+        msg_box "Error" "Hubo un problema al clonar el repositorio de GitHub."
+    fi
 }
 
 function install_azerothcms() {

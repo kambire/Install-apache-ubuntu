@@ -221,19 +221,20 @@ function manage_modules() {
     }
 
     MODS=$(checklist "Apache Modules" "Select the modules you want to enable (Space to toggle, Up/Down to scroll):" \
-        "rewrite" "Redirects & Friendly URLs (URL Rewrite)" $(check_mod "rewrite") \
+        "rewrite" "[CMS REQ] mod_rewrite (Friendly URLs)" $(check_mod "rewrite") \
+        "headers" "[CMS REQ] mod_headers (HTTP Headers)" $(check_mod "headers") \
+        "expires" "[CMS REQ] mod_expires (Cache Control)" $(check_mod "expires") \
+        "deflate" "[CMS REQ] mod_deflate (Gzip Compression)" $(check_mod "deflate") \
+        "filter" "[CMS REQ] mod_filter (Smart Filter)" $(check_mod "filter") \
         "ssl" "Strong cryptography (SSL/TLS)" $(check_mod "ssl") \
         "proxy_fcgi" "FastCGI support for proxy" $(check_mod "proxy_fcgi") \
         "setenvif" "Environment variables" $(check_mod "setenvif") \
-        "headers" "HTTP Header manipulation" $(check_mod "headers") \
         "proxy" "Multi-protocol proxy/gateway" $(check_mod "proxy") \
         "proxy_http" "Proxy HTTP protocol support" $(check_mod "proxy_http") \
         "proxy_balancer" "Load balancing support" $(check_mod "proxy_balancer") \
         "proxy_connect" "CONNECT request handling" $(check_mod "proxy_connect") \
         "proxy_http2" "HTTP/2 support module for proxy" $(check_mod "proxy_http2") \
         "http2" "Support for the HTTP/2" $(check_mod "http2") \
-        "expires" "Expires and Cache-Control headers" $(check_mod "expires") \
-        "deflate" "Gzip/Compression support" $(check_mod "deflate") \
         "brotli" "Brotli compression support" $(check_mod "brotli") \
         "env" "Environment variables modification" $(check_mod "env") \
         "mime" "Mime types and management" $(check_mod "mime") \
@@ -265,7 +266,6 @@ function manage_modules() {
         "dbd" "SQL database connections" $(check_mod "dbd") \
         "ext_filter" "Pass response through external" $(check_mod "ext_filter") \
         "file_cache" "Caches static list of files" $(check_mod "file_cache") \
-        "filter" "Context-sensitive smart filter" $(check_mod "filter") \
         "include" "Server Side Includes (SSI)" $(check_mod "include") \
         "info" "Overview of server config" $(check_mod "info") \
         "ldap" "LDAP connection pooling" $(check_mod "ldap") \

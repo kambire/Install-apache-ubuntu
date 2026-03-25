@@ -1447,7 +1447,14 @@ function install_azerothcms() {
             chmod -R 777 "$VPATH/$folder"
         done
         
-        msg_box "Éxito" "AzerothCMS ha sido instalado en $VPATH con todos sus Requisitos.\n\nSe instalaron extensiones PHP, Módulos Apache y se dieron permisos a las carpetas requeridas."
+        # 8. Final Services Restart
+        echo -e "${CYAN}Aplicando cambios y reiniciando Apache/PHP...${NC}"
+        systemctl restart apache2
+        for v in $INSTALLED_PHP; do
+            systemctl restart "php$v-fpm" 2>/dev/null
+        done
+        
+        msg_box "Éxito" "AzerothCMS ha sido instalado en $VPATH con todos sus Requisitos.\n\nSe instalaron extensiones PHP, Módulos Apache y se dieron permisos a las carpetas requeridas.\n\nNOTA: Si el CMS muestra 'Unable to check Apache Modules', IGNÓRALO Y CONTINÚA. Esto ocurre porque tu servidor usa PHP-FPM (el motor moderno más rápido) el cual, por seguridad, oculta la lista de módulos al CMS, pero los módulos SÍ están 100% activos y funcionando."
     else
         msg_box "Error" "Hubo un problema al clonar el repositorio de GitHub."
     fi

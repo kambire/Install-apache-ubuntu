@@ -35,31 +35,57 @@ if [[ "$OS" != "ubuntu" && "$OS" != "debian" ]]; then
     fi
 fi
 
+# Ensure whiptail is installed
+if ! command -v whiptail &> /dev/null; then
+    echo -e "${YELLOW}Installing whiptail for the interactive menu...${NC}"
+    apt-get update && apt-get install -y whiptail
+fi
+
 # ==============================================================================
-# UI Helper Functions (Pure Bash + ANSI Colors)
+# UI Helper Functions (Robust version)
 # ==============================================================================
 
-function print_header() {
-    clear >&2
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}" >&2
-    printf "${CYAN}║${NC} ${GREEN}%-69s${NC} ${CYAN}║${NC}\n" "$1" >&2
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}" >&2
-    if [ -n "$2" ]; then
-        echo -e "${YELLOW}$2${NC}\n" >&2
+# Check if whiptail is working correctly
+function check_ui_support() {
+    if [ -z "$TERM" ] || [ "$TERM" == "dumb" ]; then
+         return 1
+    fi
+    # Try a non-interactive whiptail call to see if it works
+    whiptail --version &>/dev/null
+    return $?
+}
+
+UI_WORKS=0
+check_ui_support || UI_WORKS=1
+
+function msg_box() {
+    if [ $UI_WORKS -eq 0 ]; then
+        whiptail --title "$1" --msgbox "$2" 10 60
+    else
+        # Text mode fallback: send prompts to stderr to avoid capturing in command substitution
+        echo -e "${BLUE}--- $1 ---${NC}\n$2\n${BLUE}----------${NC}" >&2
+        read -p "Presiona Enter para continuar..." < /dev/tty
     fi
 }
 
-function msg_box() {
-    print_header "$1" "$2"
-    echo -e "${BLUE}───────────────────────────────────────────────────────────────────────${NC}" >&2
-    read -p "$(echo -e ${GREEN}"► Presiona Enter para continuar..."${NC})" < /dev/tty
-}
-
 function input_box() {
-    print_header "$1" "$2"
-    local result
-    echo -e "${BLUE}───────────────────────────────────────────────────────────────────────${NC}" >&2
-    read -p "$(echo -e ${CYAN}"► "${NC}) [$3]: " result < /dev/tty
+    if [ $UI_WORKS -eq 0 ]; then
+        local result
+        local exit_code
+        result=$(whiptail --title "$1" --inputbox "$2" 10 60 "$3" 3>&1 1>&2 2>&3)
+        exit_code=$?
+        if [ $exit_code -eq 0 ]; then
+            echo "$result"
+            return
+        elif [ $exit_code -eq 1 ]; then
+            echo ""
+            return
+        fi
+        UI_WORKS=1
+    fi
+    # Text mode fallback: send prompts to stderr
+    echo -e "${BLUE}--- $1 ---${NC}" >&2
+    read -p "$2 [$3]: " result < /dev/tty
     result="${result//$'\r'/}"
     echo "${result:-$3}"
 }
@@ -68,23 +94,28 @@ function menu() {
     local title=$1
     local text=$2
     shift 2
-
-    print_header "$title" "$text"
-    
+    if [ $UI_WORKS -eq 0 ]; then
+        local result
+        local exit_code
+        result=$(whiptail --title "$title" --menu "$text" 23 75 15 "$@" 3>&1 1>&2 2>&3)
+        exit_code=$?
+        if [ $exit_code -eq 0 ]; then
+            echo "$result"
+            return
+        elif [ $exit_code -eq 1 ]; then
+            echo ""
+            return
+        fi
+        UI_WORKS=1
+    fi
+    # Text mode fallback: send prompts to stderr
+    echo -e "${BLUE}--- $title ---${NC}" >&2
+    echo "$text" >&2
     local options=("$@")
     for ((i=0; i<${#options[@]}; i+=2)); do
-        local tag="${options[i]}"
-        local desc="${options[i+1]}"
-        if [[ "$tag" == S* || "$tag" == -* || -z "$tag" ]]; then
-            echo -e "\n  ${BLUE}■ $desc${NC}" >&2
-        else
-            printf "    ${GREEN}[%-2s]${NC} %s\n" "$tag" "$desc" >&2
-        fi
+        echo "  ${options[i]}) ${options[i+1]}" >&2
     done
-    
-    echo -e "\n${BLUE}───────────────────────────────────────────────────────────────────────${NC}" >&2
-    local result
-    read -p "$(echo -e ${CYAN}"⚡ Ingresa tu opción y presiona Enter: "${NC})" result < /dev/tty
+    read -p "Selecciona una opción: " result < /dev/tty
     result="${result//$'\r'/}"
     echo "$result"
 }
@@ -93,65 +124,44 @@ function checklist() {
     local title=$1
     local text=$2
     shift 2
-    local tags=()
-    local descs=()
-    local statuses=()
-    
-    for ((i=0; i<$#; i+=3)); do
-        tags+=("${!i}")
-        local j=$((i+1)); descs+=("${!j}")
-        local k=$((i+2)); statuses+=("${!k}")
-    done
-    
-    while true; do
-        print_header "$title" "$text"
-        echo -e "${YELLOW}(Escribe un ID numérico/texto para marcar/desmarcar. Presiona ENTER en blanco para guardar)${NC}\n" >&2
-        for ((i=0; i<${#tags[@]}; i++)); do
-            local mark=" "
-            if [[ "${statuses[i]}" == "ON" || "${statuses[i]}" == "on" ]]; then mark="x"; fi
-            printf "  ${CYAN}[%-10s]${NC} [${GREEN}%s${NC}] %s\n" "${tags[i]}" "$mark" "${descs[i]}" >&2
-        done
-        
-        echo -e "\n${BLUE}───────────────────────────────────────────────────────────────────────${NC}" >&2
-        local choice
-        read -p "$(echo -e ${CYAN}"► Ingresa ID a modificar (o Enter para aplicar): "${NC})" choice < /dev/tty
-        choice="${choice//$'\r'/}"
-        
-        if [ -z "$choice" ]; then
-            break
+    if [ $UI_WORKS -eq 0 ]; then
+        local result
+        local exit_code
+        result=$(whiptail --title "$title" --checklist "$text" 20 70 12 "$@" 3>&1 1>&2 2>&3)
+        exit_code=$?
+        if [ $exit_code -eq 0 ]; then
+            echo "$result"
+            return
+        elif [ $exit_code -eq 1 ]; then
+            echo ""
+            return
         fi
-        
-        local found=0
-        for ((i=0; i<${#tags[@]}; i++)); do
-            if [[ "${tags[i]}" == "$choice" ]]; then
-                if [[ "${statuses[i]}" == "ON" || "${statuses[i]}" == "on" ]]; then statuses[i]="OFF"; else statuses[i]="ON"; fi
-                found=1
-                break
-            fi
-        done
-        if [ $found -eq 0 ]; then
-             echo -e "${RED}Opción inválida.${NC}" >&2
-             sleep 1
-        fi
+        UI_WORKS=1
+    fi
+    # Text mode fallback: send prompts to stderr
+    echo -e "${BLUE}--- $title ---${NC}" >&2
+    echo "$text (Escribe los valores separados por espacio)" >&2
+    local options=("$@")
+    for ((i=0; i<${#options[@]}; i+=3)); do
+        echo "  ${options[i]}) ${options[i+1]} [${options[i+2]}]" >&2
     done
-    
-    local result=""
-    for ((i=0; i<${#tags[@]}; i++)); do
-        if [[ "${statuses[i]}" == "ON" || "${statuses[i]}" == "on" ]]; then
-            result="$result \"${tags[i]}\""
-        fi
-    done
+    read -p "Opciones: " result < /dev/tty
+    result="${result//$'\r'/}"
     echo "$result"
 }
 
 function yes_no() {
-    print_header "$1" "$2"
-    local result
-    echo -e "${BLUE}───────────────────────────────────────────────────────────────────────${NC}" >&2
-    read -p "$(echo -e ${CYAN}"► (y/n): "${NC})" result < /dev/tty
-    result="${result//$'\r'/}"
-    [[ $result =~ ^[YySs]$ ]] && return 0
-    return 1
+    if [ $UI_WORKS -eq 0 ]; then
+        whiptail --title "$1" --yesno "$2" 10 60
+        return $?
+    else
+        # Text mode fallback: send prompts to stderr
+        echo -e "${BLUE}--- $1 ---${NC}" >&2
+        read -p "$2 (y/n): " result < /dev/tty
+        result="${result//$'\r'/}"
+        [[ $result =~ ^[Yy]$ ]] && return 0
+        return 1
+    fi
 }
 
 # ==============================================================================
@@ -1459,36 +1469,29 @@ function install_cms_essentials() {
 function main_menu() {
     while true; do
         CHOICE=$(menu "Main Menu" "Select an option to manage your Apache server:" \
-            "S1" "====== SERVIDOR Y BBDD ======" \
             "1" "Install Apache & PHP (Core)" \
             "2" "Gestión de MySQL (Instalar/DB/Usuarios)" \
             "3" "MSSQL & Remote DB Support (sqlsrv/dblib)" \
             "4" "Restart Apache" \
-            "S2" "====== EXTENSIONES Y MÓDULOS ======" \
             "5" "Install PHP Extensions (List)" \
             "6" "Install Custom PHP Extension" \
             "7" "Install Apache Modules" \
-            "S3" "====== DOMINIOS Y VIRTUAL HOSTS ======" \
             "8" "Add New Virtual Host" \
             "9" "List/Manage Virtual Hosts" \
             "10" "Cambiar Versión de PHP por Dominio" \
             "11" "Delete Virtual Host" \
             "12" "Reparar Permisos (Fix Permissions)" \
-            "S4" "====== SEGURIDAD Y SSL ======" \
             "13" "Install Certbot (SSL)" \
             "14" "Add SSL to Existing Domain" \
             "15" "Diagnosticar/Reparar SSL (Error RX_RECORD_TOO_LONG)" \
-            "S5" "====== UTILIDADES CMS ======" \
             "16" "Instalar Esenciales para CMS (WebEngine/FusionCMS/etc)" \
             "17" "Instalar WebEngine CMS" \
             "18" "Instalar AzerothCMS" \
-            "S6" "====== SISTEMA ======" \
             "19" "Gestión de Usuarios (Añadir/Borrar/Contraseña)" \
             "20" "Update Script from GitHub" \
             "0" "Exit")
 
         case "$CHOICE" in
-            S*) continue ;;
             1) install_apache_php ;;
             2) manage_mysql ;;
             3) install_sqlsrv ;;

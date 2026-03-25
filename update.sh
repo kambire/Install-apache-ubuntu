@@ -44,8 +44,9 @@ if [ -d .git ] && command -v git &> /dev/null; then
         echo -e "\n${GREEN}${BOLD}        ✔️  TU SISTEMA YA ESTÁ EN LA VERSIÓN MÁS RECIENTE ✔️        ${NC}"
         echo -e "${CYAN}----------------------------------------------------------------${NC}"
         echo -e "No se detectaron nuevos cambios en el repositorio oficial."
-        echo -e "Puedes seguir trabajando con normalidad.\n"
-        exit 0
+        echo -e "Abriendo el panel de control principal...\n"
+        sleep 1
+        exec sudo ./install_apache.sh
     fi
     
     echo -e "${PURPLE}➤ Descargando e instalando nueva versión...${NC}"
@@ -63,8 +64,9 @@ if [ -d .git ] && command -v git &> /dev/null; then
         git log --pretty=format:" ${GREEN}●${NC} %C(cyan)%h%Creset - %C(bold white)%s%Creset %C(green)(hace %cr)%Creset" $OLD_HASH..$NEW_HASH
         
         echo -e "\n\n${CYAN}================================================================${NC}"
-        echo -e "Ya puedes ejecutar: ${GREEN}sudo ./install_apache.sh${NC}\n"
-        exit 0
+        echo -e "${GREEN}Abriendo el panel de control actualizado...${NC}\n"
+        sleep 2
+        exec sudo ./install_apache.sh
     else
         echo -e "\n${RED}❌ Error crítico al sincronizar con Git. Intentando modo seguro...${NC}\n"
     fi
@@ -94,7 +96,9 @@ if [ $? -eq 0 ]; then
     chmod +x *.sh
     echo -e "\n${GREEN}${BOLD}✔️ Descarga directa completada con éxito.${NC}"
     echo -e "${YELLOW}Se han forzado los archivos a su última versión disponible.${NC}\n"
-    echo -e "Ya puedes ejecutar: ${GREEN}sudo ./install_apache.sh${NC}\n"
+    echo -e "${GREEN}Abriendo el panel de control...${NC}\n"
+    sleep 2
+    exec sudo ./install_apache.sh
 else
     echo -e "${RED}❌ No se pudieron descargar los archivos. Verifica tu conexión.${NC}\n"
     exit 1
